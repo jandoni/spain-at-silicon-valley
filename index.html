@@ -36,7 +36,11 @@
   <meta name="robots" content="index, follow">
   <meta name="author" content="Spain Silicon Valley">
   <meta name="theme-color" content="#14192E">
-  <link rel="canonical" href="https://spainatsiliconvalley.com/">
+  <!-- Absolute, and pointing at where the site actually is. These used to name
+       spainatsiliconvalley.com, which does not resolve — so a link preview
+       could not fetch the og:image and fell back to scraping the first <img>
+       in the document, a stock portrait in the team section. -->
+  <link rel="canonical" href="https://jandoni.github.io/spain-at-silicon-valley/">
 
   <!-- Icons -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -49,9 +53,12 @@
   <meta property="og:site_name" content="Spain Silicon Valley Summit">
   <meta property="og:title" content="Spain at Silicon Valley · The Summit">
   <meta property="og:description" content="Where Spain meets Silicon Valley. An invitation-only summit, Spring 2027, Google HQ, Mountain View.">
-  <meta property="og:url" content="https://spainatsiliconvalley.com/">
-  <meta property="og:image" content="https://spainatsiliconvalley.com/images/venue-hero.webp">
-  <meta property="og:image:alt" content="Google headquarters campus in Mountain View, California">
+  <meta property="og:url" content="https://jandoni.github.io/spain-at-silicon-valley/">
+  <meta property="og:image" content="https://jandoni.github.io/spain-at-silicon-valley/images/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="The Golden Gate Bridge in low-poly 3D, with Spain at Silicon Valley set across it in extruded type">
   <meta property="og:locale" content="en_US">
   <meta property="og:locale:alternate" content="es_ES">
 
@@ -59,7 +66,8 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Spain Silicon Valley Summit">
   <meta name="twitter:description" content="Where Spain meets Silicon Valley. An invitation-only summit, Spring 2027, Google HQ, Mountain View.">
-  <meta name="twitter:image" content="https://spainatsiliconvalley.com/images/venue-hero.webp">
+  <meta name="twitter:image" content="https://jandoni.github.io/spain-at-silicon-valley/images/og.jpg">
+  <meta name="twitter:image:alt" content="The Golden Gate Bridge in low-poly 3D, with Spain at Silicon Valley set across it in extruded type">
 
   <!-- Fonts: Fraunces (headlines), Hanken Grotesk (body), Space Mono (small labels) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -82,9 +90,9 @@
       "name": "Google HQ",
       "address": { "@type": "PostalAddress", "addressLocality": "Mountain View", "addressRegion": "CA", "addressCountry": "US" }
     },
-    "image": ["https://spainatsiliconvalley.com/images/venue-hero.webp"],
-    "organizer": { "@type": "Organization", "name": "Spain Silicon Valley", "url": "https://spainatsiliconvalley.com" },
-    "url": "https://spainatsiliconvalley.com/"
+    "image": ["https://jandoni.github.io/spain-at-silicon-valley/images/og.jpg"],
+    "organizer": { "@type": "Organization", "name": "Spain Silicon Valley", "url": "https://jandoni.github.io/spain-at-silicon-valley" },
+    "url": "https://jandoni.github.io/spain-at-silicon-valley/"
   }
   </script>
 </head>
