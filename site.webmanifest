@@ -2,7 +2,7 @@
   "name": "Spain Silicon Valley Summit",
   "short_name": "Spain SV",
   "description": "An invitation-only summit bringing Spanish founders, investors and leaders together with the Bay Area, inside Google's headquarters. Spring 2027, Mountain View.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#F0EBE0",
   "theme_color": "#14192E",
