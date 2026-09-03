@@ -4,15 +4,19 @@
   ------------------------------------------------------------------
   Static, framework-free. Files:
      index.html   → structure + content
-     styles.css   → styling (editorial luxury, mobile-first)
+     styles.css   → styling (mobile-first)
      main.js      → language toggle, menu, motion, carousel/flip
+     scene.js     → the scroll-driven Three.js bridge stage
+     models/, vendor/ → GLB bridge model + vendored Three.js
      images/      → optimised WebP assets
      favicon.svg / *.png / site.webmanifest → icons
   Bilingual (EN/ES): translatable strings carry a data-i18n key; the
   dictionary + toggle live in main.js and the choice is remembered.
-  Layout: content sections use a ".split" grid — a sticky headline on
-  the left, content on the right. People show in a horizontal carousel
-  of cards that flip on click.
+  Layout: the hero, partners, why and summit sections sit inside #zone
+  and float over a single fixed 3D scene (see scene.js) that flies
+  through the Golden Gate as you scroll. Below that the page turns
+  solid and light. Content sections use a ".split" grid — a sticky
+  headline on the left, content on the right.
   ------------------------------------------------------------------
 -->
 <html lang="en">
@@ -20,8 +24,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
+  <!-- Map the bare "three" specifier used by the vendored Three.js addons -->
+  <script type="importmap">
+  { "imports": { "three": "./vendor/three.module.js" } }
+  </script>
+
   <!-- Primary SEO -->
-  <title>Spain Silicon Valley Summit · Spring 2027, Google HQ Mountain View</title>
+  <title>Spain at Silicon Valley · The Summit, Spring 2027, Google HQ Mountain View</title>
   <meta name="description" content="An invitation-only summit bringing Spanish founders, investors and leaders together with the Bay Area, inside Google's Silicon Valley headquarters. Spring 2027, Mountain View.">
   <meta name="keywords" content="Spain, Silicon Valley, summit, founders, investors, AI, Google, Mountain View, startups, Bay Area">
   <meta name="robots" content="index, follow">
@@ -38,7 +47,7 @@
   <!-- Open Graph (link previews) -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Spain Silicon Valley Summit">
-  <meta property="og:title" content="Spain Silicon Valley Summit">
+  <meta property="og:title" content="Spain at Silicon Valley · The Summit">
   <meta property="og:description" content="Where Spain meets Silicon Valley. An invitation-only summit, Spring 2027, Google HQ, Mountain View.">
   <meta property="og:url" content="https://spainatsiliconvalley.com/">
   <meta property="og:image" content="https://spainatsiliconvalley.com/images/venue-hero.webp">
@@ -86,23 +95,36 @@
   <header class="nav" id="nav">
     <a class="nav__brand" href="#top" aria-label="Spain Silicon Valley, home">
       <span class="logomark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-      <span class="nav__brandtext">SPAIN SILICON VALLEY</span>
+      <span class="nav__brandtext">SPAIN AT SILICON VALLEY</span>
     </a>
 
+    <!-- Three slots: language left, navigation centred, calls to action right.
+         The links keep their own <nav> because the burger overlay targets it. -->
+    <div class="langtoggle" role="group" aria-label="Language">
+      <button class="langtoggle__btn is-active" data-lang="en" type="button">EN</button>
+      <button class="langtoggle__btn" data-lang="es" type="button">ES</button>
+    </div>
+
+    <!-- data-station is the stop in the flight each link belongs to (see the
+         stations scene.js publishes). href stays pointing at a real section so
+         the no-WebGL page still navigates; with the stage running, main.js flies
+         to the station instead and marks the one you are on. -->
     <nav class="nav__links" id="navLinks" aria-label="Primary">
-      <a class="navlink" href="#why"      data-i18n="nav.why">Why Spain</a>
-      <a class="navlink" href="#summit"   data-i18n="nav.summit">The Summit</a>
-      <a class="navlink" href="#speakers" data-i18n="nav.speakers">Speakers</a>
-      <a class="navlink" href="#partners" data-i18n="nav.partners">Partners</a>
-      <div class="langtoggle" role="group" aria-label="Language">
-        <button class="langtoggle__btn is-active" data-lang="en" type="button">EN</button>
-        <button class="langtoggle__btn" data-lang="es" type="button">ES</button>
-      </div>
-      <a class="btn btn--primary btn--sm" href="#contact">
+      <a class="navlink" href="#summit"   data-station="1" data-i18n="nav.venue">The venue</a>
+      <a class="navlink" href="#speakers" data-station="3" data-from="2" data-i18n="nav.speakers">Speakers</a>
+      <a class="navlink" href="#summit"   data-station="4" data-i18n="nav.format">The format</a>
+    </nav>
+
+    <div class="nav__ctas">
+      <a class="btn btn--gold btn--sm" href="#contact" data-cta="sponsor">
+        <span data-i18n="cta.sponsor">Sponsor inquiry</span>
+        <span class="btn__ico" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none"><path d="M3 9 9 3M4.5 3H9v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+      <a class="btn btn--primary btn--sm" href="#contact" data-cta="invite">
         <span data-i18n="nav.cta">Request an invite</span>
         <span class="btn__ico" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none"><path d="M3 9 9 3M4.5 3H9v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
       </a>
-    </nav>
+    </div>
 
     <button class="nav__burger" id="navBurger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="navLinks">
       <span></span><span></span><span></span>
@@ -110,22 +132,95 @@
   </header>
 
 
+  <!-- ===================== 3D STAGE =====================
+       One fixed WebGL scene behind everything inside #zone. scene.js drives the
+       camera, sky, sun and fog off the scroll position through that zone, so the
+       bridge is a continuous place rather than a hero decoration. .stage__sky is
+       the CSS fallback shown when WebGL is unavailable or motion is reduced. -->
+  <div class="stage" aria-hidden="true">
+    <div class="stage__sky"></div>
+    <canvas class="stage__canvas" id="stageCanvas"></canvas>
+  </div>
+
+  <!-- Opened by either call to action, after the flight fast-forwards to the
+       tunnel. Same cartoon-ish register as the scene: thick edges, flat warm
+       fills, no glassmorphism. -->
+  <div class="reqform" id="reqForm" hidden>
+    <div class="reqform__panel" role="dialog" aria-modal="true" aria-labelledby="reqTitle">
+      <button class="reqform__close" type="button" id="reqClose" aria-label="Close">&#215;</button>
+      <p class="reqform__kicker" id="reqKicker" data-i18n="form.kicker.invite">Request an invite</p>
+      <h2 class="reqform__title" id="reqTitle" data-i18n="form.title">Tell us who you are</h2>
+      <form class="reqform__body" id="reqFields" novalidate>
+        <label class="reqfield"><span data-i18n="form.name">Name</span>
+          <input type="text" name="name" autocomplete="name" required></label>
+        <label class="reqfield"><span data-i18n="form.email">Email</span>
+          <input type="email" name="email" autocomplete="email" required></label>
+        <label class="reqfield"><span data-i18n="form.org">Company or organisation</span>
+          <input type="text" name="org" autocomplete="organization"></label>
+        <label class="reqfield"><span data-i18n="form.note">Anything else</span>
+          <textarea name="note" rows="3"></textarea></label>
+        <button class="btn btn--primary reqform__submit" type="submit" data-i18n="form.send">Send</button>
+        <p class="reqform__done" id="reqDone" hidden data-i18n="form.done">Thank you — we will be in touch.</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Controls for the 3D speaker gallery (scene.js). Deliberately not a
+       panel: the card itself already carries the name and the profile, so this
+       is only chrome — bare type and chevrons, in the scroll cue's voice. -->
+  <div class="cardui" id="cardPanel" hidden>
+    <!-- The wall is six across and three down, so the controls are too. Arrow
+         keys do the same while a card is open (see scene.js). -->
+    <div class="cardui__pad" role="group" aria-label="Move between speakers">
+      <button class="cardui__dir cardui__dir--up"    type="button" id="cardUp"    aria-label="Speaker above"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="cardui__dir cardui__dir--left"  type="button" id="cardPrev"  aria-label="Speaker to the left"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="cardui__dir cardui__dir--right" type="button" id="cardNext"  aria-label="Speaker to the right"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="cardui__dir cardui__dir--down"  type="button" id="cardDown"  aria-label="Speaker below"><svg viewBox="0 0 16 16" aria-hidden="true" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+    <!-- Sits inside the card, low and centred: scene.js projects the focused
+         card's own geometry to screen coordinates each frame. -->
+    <div class="cardui__inlink" id="cardLinkedinAt" hidden>
+      <a class="btn btn--primary btn--sm" id="cardLinkedin" href="https://www.linkedin.com/" target="_blank" rel="noopener">
+        <span data-i18n="card.linkedin">View LinkedIn</span>
+        <span class="btn__ico" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none"><path d="M3 9 9 3M4.5 3H9v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      </a>
+    </div>
+    <div class="cardui__foot">
+      <p class="cardui__name" id="cardName"></p>
+      <p class="cardui__role" id="cardRole" hidden></p>
+      <div class="cardui__links">
+        <button class="btn btn--gold btn--sm cardui__cta" type="button" id="cardBack" data-i18n="card.exit.open">Back to the bridge</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Everything that floats on the 3D stage. Sections here are transparent. -->
+  <div class="zone" id="zone">
+
   <!-- ===================== HERO ===================== -->
   <section class="hero" id="top" data-screen-label="Hero">
-    <img class="hero__bg" src="images/venue-hero.webp" alt="Google headquarters campus in Mountain View, California" fetchpriority="high" width="1800" height="1014">
-    <div class="hero__scrim"></div>
+    <div class="hero__scrim" aria-hidden="true"></div>
 
     <div class="hero__inner" data-anim>
-      <h1 class="hero__title">
-        <span data-i18n="hero.title1">Where Spain meets</span><em data-i18n="hero.titleAI"> Silicon Valley</em>
-      </h1>
-      <p class="hero__sub" data-i18n="hero.sub">An invitation-only summit that brings Spanish founders, investors and leaders together with the Bay Area, inside Google's headquarters.</p>
-      <div class="hero__actions">
-        <a class="btn btn--primary" href="#contact">
-          <span data-i18n="cta.request">Request an invite</span>
-          <span class="btn__ico" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none"><path d="M3 9 9 3M4.5 3H9v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-        </a>
-        <a class="btn btn--ghost btn--onDark" href="#partners"><span data-i18n="cta.sponsor">Sponsor inquiry</span></a>
+      <div class="hero__copy">
+        <h1 class="hero__title">
+          <span data-i18n="hero.title1">Spain at</span><em data-i18n="hero.titleAI"> Silicon Valley</em>
+          <span class="hero__event" data-i18n="hero.event">Spring 2027 Summit</span>
+        </h1>
+        <p class="hero__sub" data-i18n="hero.sub">An invitation-only summit that brings Spanish founders, investors and leaders together with the Bay Area, inside Google's headquarters.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" data-cta="invite" href="#contact">
+            <span data-i18n="cta.request">Request an invite</span>
+            <span class="btn__ico" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none"><path d="M3 9 9 3M4.5 3H9v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </a>
+          <a class="btn btn--ghost btn--onDark" data-cta="sponsor" href="#partners"><span data-i18n="cta.sponsor">Sponsor inquiry</span></a>
+        </div>
+
+        <!-- Count-up stats (animated by main.js) -->
+        <div class="hero__stats" data-anim="stagger">
+          <div class="stat"><span class="stat__val"><span class="stat__num" data-count="20">0</span><span class="stat__suffix">+</span></span><span class="stat__label" data-i18n="stat.speakers">Speakers</span></div>
+          <div class="stat"><span class="stat__val"><span class="stat__num" data-count="2">0</span></span><span class="stat__label" data-i18n="stat.days">Days</span></div>
+          </div>
       </div>
     </div>
 
@@ -137,9 +232,50 @@
   </section>
 
 
+  <!-- ===================== PARTNERS (auto-scrolling marquee) ===================== -->
+  <!-- NOTE: the wordmarks and monogram marks below are typeset for visual design
+       only. Confirm real partnerships and permissions before publishing; swap or
+       remove any that are not agreed. Two rows scroll in opposite directions and
+       pause on hover. -->
+  <section class="section partners" id="partners" data-screen-label="Partners">
+  <!-- Placeholder monogram marks. Each <symbol> is a one-for-one swap for a real
+       partner logo once permissions are confirmed. -->
+  <svg class="marks" aria-hidden="true" focusable="false"><defs>
+    <symbol id="pm-google" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 12h-6.4"/></symbol>
+    <symbol id="pm-camara" viewBox="0 0 24 24"><path d="M2.5 9.6 12 4l9.5 5.6M4 20h16M6.2 20v-8M10 20v-8M14 20v-8M17.8 20v-8"/></symbol>
+    <symbol id="pm-ie" viewBox="0 0 24 24"><path d="M6 5v14M11 5h7M11 12h5.4M11 19h7"/></symbol>
+    <symbol id="pm-icex" viewBox="0 0 24 24"><path d="M4 7l4.6 5L4 17M12 7l4.6 5L12 17M20 7v10"/></symbol>
+    <symbol id="pm-summitpk" viewBox="0 0 24 24"><path d="M2.5 19l6.2-9 3.9 5.4L16 10.5 21.5 19z"/></symbol>
+    <symbol id="pm-telef" viewBox="0 0 24 24"><path d="M12 19.4h.01M8.6 15.8a4.8 4.8 0 0 1 6.8 0M5.4 12.6a9.3 9.3 0 0 1 13.2 0"/></symbol>
+    <symbol id="pm-esade" viewBox="0 0 24 24"><path d="M5 5h9.2L19 9.8V19H5zM14.2 5v4.8H19"/></symbol>
+    <symbol id="pm-wayra" viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 1-5.6 13.7A5.4 5.4 0 1 1 12 7.2a2.9 2.9 0 1 0 2.1 4.9"/></symbol>
+    <symbol id="pm-mwc" viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16M4 12h16M12 4a11.5 11.5 0 0 1 0 16 11.5 11.5 0 0 1 0-16"/></symbol>
+    <symbol id="pm-btc" viewBox="0 0 24 24"><path d="M12 3.4l7.2 4.2v8.8L12 20.6l-7.2-4.2V7.6zM12 8.4l3 1.8v3.6l-3 1.8-3-1.8v-3.6z"/></symbol>
+    <symbol id="pm-kfund" viewBox="0 0 24 24"><path d="M7 5v14M17.5 5l-8.2 7.4 8.2 6.6"/></symbol>
+    <symbol id="pm-endeavor" viewBox="0 0 24 24"><path d="M12 20V4.8M6 10.8l6-6 6 6"/></symbol>
+    <symbol id="pm-seedr" viewBox="0 0 24 24"><path d="M12 3.4a8.6 8.6 0 1 1 0 17.2 8.6 8.6 0 0 1 0-17.2M8.4 13.6 12 8.9l3.6 4.7M12 8.9V16"/></symbol>
+    <symbol id="pm-bankint" viewBox="0 0 24 24"><path d="M4 8h11M9 12h11M4 16h11"/></symbol>
+    <symbol id="pm-santan" viewBox="0 0 24 24"><path d="M12 3.4C9 7 7 9.2 7 12.4a5 5 0 0 0 10 0c0-3.2-2-5.4-5-9M12 20.6v-6.2"/></symbol>
+    <symbol id="pm-valencia" viewBox="0 0 24 24"><path d="M5 5.6 12 19l7-13.4M9.4 5.6h5.2"/></symbol>
+  </defs></svg>
+
+    <div class="section__wrap partners__head" data-anim>
+      <h2 class="h2 mask"><span data-i18n="partners.title">Partners</span></h2>
+      <p class="partners__note" data-i18n="partners.note">Convening with the institutions building the bridge between both ecosystems.</p>
+    </div>
+
+    <div class="marquee" style="--dur:64s">
+      <div class="marquee__track"><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-google"/></svg><span class="brand__txt">Google</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-camara"/></svg><span class="brand__txt">Cámara de Comercio de España</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-ie"/></svg><span class="brand__txt">IE University</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-icex"/></svg><span class="brand__txt">ICEX España</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-summitpk"/></svg><span class="brand__txt">South Summit</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-telef"/></svg><span class="brand__txt">Telefónica</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-esade"/></svg><span class="brand__txt">ESADE</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-wayra"/></svg><span class="brand__txt">Wayra</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-google"/></svg><span class="brand__txt">Google</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-camara"/></svg><span class="brand__txt">Cámara de Comercio de España</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-ie"/></svg><span class="brand__txt">IE University</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-icex"/></svg><span class="brand__txt">ICEX España</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-summitpk"/></svg><span class="brand__txt">South Summit</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-telef"/></svg><span class="brand__txt">Telefónica</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-esade"/></svg><span class="brand__txt">ESADE</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-wayra"/></svg><span class="brand__txt">Wayra</span></span></div>
+    </div>
+    <div class="marquee marquee--rev" style="--dur:78s">
+      <div class="marquee__track"><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-mwc"/></svg><span class="brand__txt">Mobile World Capital</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-btc"/></svg><span class="brand__txt">Barcelona Tech City</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-kfund"/></svg><span class="brand__txt">K Fund</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-endeavor"/></svg><span class="brand__txt">Endeavor</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-seedr"/></svg><span class="brand__txt">SeedRocket</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-bankint"/></svg><span class="brand__txt">Bankinter</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-santan"/></svg><span class="brand__txt">Banco Santander</span></span><span class="brand"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-valencia"/></svg><span class="brand__txt">Startup Valencia</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-mwc"/></svg><span class="brand__txt">Mobile World Capital</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-btc"/></svg><span class="brand__txt">Barcelona Tech City</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-kfund"/></svg><span class="brand__txt">K Fund</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-endeavor"/></svg><span class="brand__txt">Endeavor</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-seedr"/></svg><span class="brand__txt">SeedRocket</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-bankint"/></svg><span class="brand__txt">Bankinter</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-santan"/></svg><span class="brand__txt">Banco Santander</span></span><span class="brand" aria-hidden="true"><svg class="brand__ico" viewBox="0 0 24 24" aria-hidden="true"><use href="#pm-valencia"/></svg><span class="brand__txt">Startup Valencia</span></span></div>
+    </div>
+  </section>
+
+
   <!-- ===================== WHY SPAIN + ACCORDION ===================== -->
   <section class="section why" id="why" data-screen-label="Why">
-    <div class="section__wrap split">
+    <div class="section__wrap split panel">
       <div class="split__head">
         <h2 class="h2 mask"><span data-i18n="why.title">The reference summit for Spanish talent. Quality over quantity.</span></h2>
         <p class="lead" data-anim data-i18n="why.lead">What the summit opens up for you, depending on where you sit.</p>
@@ -195,9 +331,9 @@
   </section>
 
 
-  <!-- ===================== THE SUMMIT (dark) ===================== -->
-  <section class="section section--dark summit" id="summit" data-screen-label="The Summit">
-    <div class="section__wrap split">
+  <!-- ===================== THE SUMMIT ===================== -->
+  <section class="section summit" id="summit" data-screen-label="The Summit">
+    <div class="section__wrap split panel">
       <div class="split__head">
         <h2 class="h2 mask"><span data-i18n="summit.title">Two days, by invitation, built around three ideas.</span></h2>
         <p class="lead" data-anim data-i18n="summit.lead">A small, deliberate gathering for the people writing Spain's next chapter. Not a conference floor.</p>
@@ -239,127 +375,138 @@
 
   <!-- ===================== SPEAKERS (flip-card carousel) ===================== -->
   <section class="section speakers" id="speakers" data-screen-label="Speakers">
-    <div class="section__wrap split">
-      <div class="split__head">
+    <div class="section__wrap panel">
+      <div class="head" data-anim>
         <h2 class="h2 mask"><span data-i18n="speakers.title">More than 20 leaders shaping Spain's next chapter.</span></h2>
-        <p class="lead" data-anim data-i18n="speakers.lead">The lineup lands soon. Drag to browse. Tap a card for the detail.</p>
+        <p class="lead" data-i18n="speakers.lead">The full lineup is announced soon. Tap any card for the profile.</p>
       </div>
 
-      <div class="split__body">
-        <div class="carousel" data-anim aria-label="Speakers">
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+      <div class="speakergrid" data-anim="stagger" aria-label="Speakers">
+          <div class="person person--t0" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-01.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-javier-olivan.webp" aria-hidden="true"><span>JO</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Javier Oliván</span><span class="person__role" data-en="COO, Meta" data-es="COO, Meta">COO, Meta</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Joined Facebook in 2007 to build its first non-English version, Spanish, and led international growth for fifteen years. Now runs business, operations and partnerships across Meta." data-es="Entro en Facebook en 2007 para construir su primera version no inglesa: la espanola. Dirigio el crecimiento internacional quince anos y hoy lleva negocio, operaciones y alianzas en Meta.">Joined Facebook in 2007 to build its first non-English version, Spanish, and led international growth for fifteen years. Now runs business, operations and partnerships across Meta.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/javierolivan/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/javierolivan</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t1" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-02.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-enrique-lores.webp" aria-hidden="true"><span>EL</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Enrique Lores</span><span class="person__role" data-en="CEO, PayPal" data-es="CEO, PayPal">CEO, PayPal</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Madrid-born, joined HP as an engineering intern in 1989 and led it as CEO from 2019 until early 2026. Took over at PayPal in February 2026." data-es="Madrileno. Entro en HP como becario de ingenieria en 1989 y la dirigio como CEO de 2019 a principios de 2026. Desde febrero de 2026 lidera PayPal.">Madrid-born, joined HP as an engineering intern in 1989 and led it as CEO from 2019 until early 2026. Took over at PayPal in February 2026.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/enriquelores/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/enriquelores</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t2" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-03.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-pilar-manchon.webp" aria-hidden="true"><span>PM</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Pilar Manchón</span><span class="person__role" data-en="Sr. Director, AI Research Strategy, Google" data-es="Directora senior de estrategia de investigacion en IA, Google">Sr. Director, AI Research Strategy, Google</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Founded Indisys, an early virtual-assistant company acquired by Intel, then led conversational AI at Intel, Amazon and Roku. Advises the Spanish government on AI strategy." data-es="Fundo Indisys, pionera en asistentes virtuales, comprada por Intel. Despues lidero IA conversacional en Intel, Amazon y Roku. Asesora al Gobierno de Espana en estrategia de IA.">Founded Indisys, an early virtual-assistant company acquired by Intel, then led conversational AI at Intel, Amazon and Roku. Advises the Spanish government on AI strategy.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/pilarmanchon/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/pilarmanchon</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t3" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-04.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-nuria-oliver.webp" aria-hidden="true"><span>NO</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Nuria Oliver</span><span class="person__role" data-en="Director, ELLIS Alicante" data-es="Directora, ELLIS Alicante">Director, ELLIS Alicante</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="MIT Media Lab PhD, formerly a researcher at Microsoft Research and scientific director at Telefonica and Vodafone. Co-founded and directs ELLIS Alicante, on responsible AI." data-es="Doctora por el MIT Media Lab, investigadora en Microsoft Research y directora cientifica en Telefonica y Vodafone. Cofundo y dirige ELLIS Alicante, sobre IA responsable.">MIT Media Lab PhD, formerly a researcher at Microsoft Research and scientific director at Telefonica and Vodafone. Co-founded and directs ELLIS Alicante, on responsible AI.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/nuriaoliver" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/nuriaoliver</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t0" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-05.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-carme-artigas.webp" aria-hidden="true"><span>CA</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Carme Artigas</span><span class="person__role" data-en="Co-Chair, UN AI Advisory Body" data-es="Copresidenta del Organo Asesor de IA de la ONU">Co-Chair, UN AI Advisory Body</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Spain&#x27;s first Secretary of State for Digitalisation and AI, and the Council presidency&#x27;s chief negotiator on the EU AI Act. Co-founded and ran the big-data firm Synergic Partners." data-es="Primera secretaria de Estado de Digitalizacion e IA de Espana y negociadora jefe de la presidencia del Consejo en el Reglamento europeo de IA. Cofundadora y CEO de Synergic Partners.">Spain&#x27;s first Secretary of State for Digitalisation and AI, and the Council presidency&#x27;s chief negotiator on the EU AI Act. Co-founded and ran the big-data firm Synergic Partners.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/carme-artigas-7316513" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/carme-artigas-7316513</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t1" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-06.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-cesar-cernuda.webp" aria-hidden="true"><span>CC</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">César Cernuda</span><span class="person__role" data-en="President, NetApp" data-es="Presidente, NetApp">President, NetApp</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Twenty-three years at Microsoft, where he ran Latin America and then Asia Pacific as a corporate vice president. Decorated by Spain for the commercial ties he built with the United States." data-es="Veintitres anos en Microsoft, donde dirigio Latinoamerica y despues Asia-Pacifico como vicepresidente corporativo. Condecorado por Espana por los lazos comerciales tejidos con Estados Unidos.">Twenty-three years at Microsoft, where he ran Latin America and then Asia Pacific as a corporate vice president. Decorated by Spain for the commercial ties he built with the United States.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/cesarcernuda/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/cesarcernuda</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t2" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-07.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-miguel-milano.webp" aria-hidden="true"><span>MM</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Miguel Milano</span><span class="person__role" data-en="President &amp; COO, Salesforce" data-es="Presidente y COO, Salesforce">President &amp; COO, Salesforce</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Ran Salesforce across APAC, EMEA and Latin America, left to be co-owner and CRO of Celonis, returned in 2023 and was promoted to operating chief in August 2026." data-es="Dirigio Salesforce en Asia-Pacifico, EMEA y Latinoamerica, salio para ser copropietario y CRO de Celonis, volvio en 2023 y en agosto de 2026 ascendio a director de operaciones.">Ran Salesforce across APAC, EMEA and Latin America, left to be co-owner and CRO of Celonis, returned in 2023 and was promoted to operating chief in August 2026.</p>
+                <a class="person__link" href="https://www.salesforce.com/company/miguel-milano-bio/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>www.salesforce.com</span></a>
               </div>
             </div>
           </div>
-          <div class="person" tabindex="0" role="button" aria-label="Show speaker detail">
+          <div class="person person--t3" tabindex="0" role="button" aria-label="Show speaker detail">
             <div class="person__inner">
               <div class="person__face person__front">
-                <img src="images/speaker-08.webp" alt="Spain Silicon Valley Summit speaker" loading="lazy" width="560" height="746">
+                <div class="person__mono" data-photo="images/speaker-xavier-amatriain.webp" aria-hidden="true"><span>XA</span></div>
                 <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-                <div class="person__meta"><span class="person__name" data-i18n="tbd.name">To be announced</span><span class="person__role" data-i18n="tbd.speaker">Speaker</span></div>
+                <div class="person__meta"><span class="person__name">Xavier Amatriain</span><span class="person__role" data-en="Chief AI &amp; Data Officer, Expedia Group" data-es="Chief AI &amp; Data Officer, Expedia Group">Chief AI &amp; Data Officer, Expedia Group</span></div>
               </div>
               <div class="person__face person__back">
-                <p class="person__bio" data-i18n="tbd.bio">A short profile appears here once the lineup is confirmed.</p>
-                <a class="person__link" href="https://www.linkedin.com/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/username</span></a>
+                <p class="person__bio" data-en="Built the recommendation systems behind Netflix, led AI at Quora and LinkedIn, co-founded Curai Health, then ran product for AI at Google. Barcelona-born; IEEE and ACM Fellow." data-es="Construyo los sistemas de recomendacion de Netflix, dirigio IA en Quora y LinkedIn, cofundo Curai Health y llevo producto de IA en Google. Barcelones; IEEE y ACM Fellow.">Built the recommendation systems behind Netflix, led AI at Quora and LinkedIn, co-founded Curai Health, then ran product for AI at Google. Barcelona-born; IEEE and ACM Fellow.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/xamat/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/xamat</span></a>
+              </div>
+            </div>
+          </div>
+          <div class="person person--t0" tabindex="0" role="button" aria-label="Show speaker detail">
+            <div class="person__inner">
+              <div class="person__face person__front">
+                <div class="person__mono" data-photo="images/speaker-inaki-berenguer.webp" aria-hidden="true"><span>IB</span></div>
+                <span class="person__hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 10V4h6M20 14v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                <div class="person__meta"><span class="person__name">Iñaki Berenguer</span><span class="person__role" data-en="CEO &amp; Co-founder, MITO AI" data-es="CEO y cofundador, MITO AI">CEO &amp; Co-founder, MITO AI</span></div>
+              </div>
+              <div class="person__face person__back">
+                <p class="person__bio" data-en="Three exits: Pixable, Contactive and CoverWallet, sold to Aon in 2020. Cambridge PhD, MIT MBA, taught at Stanford Engineering and invests through LifeX Ventures." data-es="Tres salidas: Pixable, Contactive y CoverWallet, vendida a Aon en 2020. Doctor por Cambridge, MBA por el MIT, profesor en Stanford e inversor a traves de LifeX Ventures.">Three exits: Pixable, Contactive and CoverWallet, sold to Aon in 2020. Cambridge PhD, MIT MBA, taught at Stanford Engineering and invests through LifeX Ventures.</p>
+                <a class="person__link" href="https://www.linkedin.com/in/inakiberenguer/" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM10 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.77-1.95 4.03 0 4.78 2.6 4.78 5.98V21h-4v-5.3c0-1.26-.02-2.9-1.77-2.9-1.77 0-2.04 1.38-2.04 2.8V21h-4z"/></svg><span>in/inakiberenguer</span></a>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
   </section>
 
 
   <!-- ===================== MEET THE TEAM (flip-card carousel) ===================== -->
-  <section class="section section--tint team" id="team" data-screen-label="Team">
-    <div class="section__wrap split">
+  <section class="section team" id="team" data-screen-label="Team">
+    <div class="section__wrap split panel">
       <div class="split__head">
         <h2 class="h2 mask"><span data-i18n="team.title">The organizers behind the summit.</span></h2>
         <p class="lead" data-anim data-i18n="team.lead">Drag to browse. Tap a card for the detail.</p>
@@ -477,77 +624,27 @@
   </section>
 
 
-  <!-- ===================== PARTNERS (auto-scrolling marquee) ===================== -->
-  <!-- NOTE: the wordmarks below are typeset for visual design only. Confirm real
-       partnerships and permissions before publishing; swap or remove any that
-       are not agreed. Two rows scroll in opposite directions and pause on hover. -->
-  <section class="section section--tint partners" id="partners" data-screen-label="Partners">
-    <div class="section__wrap partners__head">
-      <h2 class="h2 mask"><span data-i18n="partners.title">Partners</span></h2>
-    </div>
-
-    <div class="marquee" data-anim style="--dur:52s">
-      <div class="marquee__track">
-        <span class="brand">Google</span><span class="brand">Cámara de Comercio de España</span><span class="brand">IE University</span><span class="brand">ICEX España</span><span class="brand">South Summit</span><span class="brand">Telefónica</span><span class="brand">ESADE</span><span class="brand">Wayra</span>
-        <span class="brand" aria-hidden="true">Google</span><span class="brand" aria-hidden="true">Cámara de Comercio de España</span><span class="brand" aria-hidden="true">IE University</span><span class="brand" aria-hidden="true">ICEX España</span><span class="brand" aria-hidden="true">South Summit</span><span class="brand" aria-hidden="true">Telefónica</span><span class="brand" aria-hidden="true">ESADE</span><span class="brand" aria-hidden="true">Wayra</span>
-      </div>
-    </div>
-    <div class="marquee marquee--rev" style="--dur:64s">
-      <div class="marquee__track">
-        <span class="brand">Mobile World Capital</span><span class="brand">Barcelona Tech City</span><span class="brand">K Fund</span><span class="brand">Endeavor</span><span class="brand">SeedRocket</span><span class="brand">Bankinter</span><span class="brand">Banco Santander</span><span class="brand">Startup Valencia</span>
-        <span class="brand" aria-hidden="true">Mobile World Capital</span><span class="brand" aria-hidden="true">Barcelona Tech City</span><span class="brand" aria-hidden="true">K Fund</span><span class="brand" aria-hidden="true">Endeavor</span><span class="brand" aria-hidden="true">SeedRocket</span><span class="brand" aria-hidden="true">Bankinter</span><span class="brand" aria-hidden="true">Banco Santander</span><span class="brand" aria-hidden="true">Startup Valencia</span>
-      </div>
-    </div>
-  </section>
-
-
-  <!-- ===================== CLOSING CTA ===================== -->
-  <section class="section cta" id="contact" data-screen-label="CTA">
+  <!-- ===================== ARRIVAL / CLOSING CTA ===================== -->
+  <section class="section cta cta--arrival" id="contact" data-screen-label="CTA">
     <div class="section__wrap" data-anim>
+      <!-- The 3D title on the hillside carries the message (see FINALE in
+           scene.js); the heading and lead stay only for the no-WebGL page. -->
       <h2 class="cta__title mask"><span data-i18n="cta.title">See you in Mountain View, Spring 2027.</span></h2>
       <p class="lead cta__lead" data-i18n="cta.lead">Invitations are limited. Tell us who you are and we will be in touch.</p>
       <div class="cta__actions">
-        <a class="btn btn--primary" href="mailto:hello@spainatsiliconvalley.com?subject=Summit%20invitation%20request">
+        <a class="btn btn--primary" data-cta="invite" href="mailto:hello@spainatsiliconvalley.com?subject=Summit%20invitation%20request">
           <span data-i18n="cta.request">Request an invite</span>
           <span class="btn__ico" aria-hidden="true"><svg viewBox="0 0 12 12" fill="none"><path d="M3 9 9 3M4.5 3H9v4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </a>
-        <a class="btn btn--ghost" href="mailto:hello@spainatsiliconvalley.com?subject=Sponsorship%20inquiry"><span data-i18n="cta.sponsor">Sponsor inquiry</span></a>
+        <a class="btn btn--gold" data-cta="sponsor" href="mailto:hello@spainatsiliconvalley.com?subject=Sponsorship%20inquiry"><span data-i18n="cta.sponsor">Sponsor inquiry</span></a>
       </div>
     </div>
   </section>
 
+  </div><!-- /#zone -->
 
-  <!-- ===================== FOOTER ===================== -->
-  <footer class="footer" data-screen-label="Footer">
-    <div class="footer__grid">
-      <div>
-        <div class="footer__brand">
-          <span class="logomark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
-          <span class="nav__brandtext">SPAIN SILICON VALLEY</span>
-        </div>
-        <p class="footer__url">spainatsiliconvalley.com</p>
-      </div>
-      <div class="footer__cols">
-        <div>
-          <h4 data-i18n="footer.contact">CONTACT</h4>
-          <a href="mailto:hello@spainatsiliconvalley.com">hello@spainatsiliconvalley.com</a>
-        </div>
-        <div>
-          <h4 data-i18n="footer.follow">FOLLOW</h4>
-          <a href="https://www.linkedin.com/" target="_blank" rel="noopener">LinkedIn</a>
-        </div>
-        <div>
-          <h4 data-i18n="footer.language">LANGUAGE</h4>
-          <div class="langtoggle langtoggle--dark" role="group" aria-label="Language">
-            <button class="langtoggle__btn is-active" data-lang="en" type="button">EN</button>
-            <button class="langtoggle__btn" data-lang="es" type="button">ES</button>
-          </div>
-        </div>
-      </div>
-    </div>
-    <p class="footer__legal" data-i18n="footer.legal">© 2027 Spain Silicon Valley. All rights reserved.</p>
-  </footer>
 
   <script src="main.js" defer></script>
+  <script type="module" src="scene.js"></script>
 </body>
 </html>

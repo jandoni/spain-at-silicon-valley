@@ -1,211 +1,194 @@
 /* ==================================================================
-   Spain Silicon Valley Summit — styles  (editorial luxury)
+   Spain Silicon Valley Summit — styles
    ------------------------------------------------------------------
-   Design language: warm ivory paper, a readable Fraunces serif for
-   headlines, heavy whitespace, a whisper of film grain, and motion
-   that eases on real spring curves. No stacked mono-labels, no icon
-   chips, no dotted markers.
+   The top of the site (hero → partners → why → summit) floats over one
+   fixed 3D scene that flies through the Golden Gate as you scroll; see
+   scene.js. Below that the page hands over to warm ivory paper.
+
+   Because the same components appear over a dark sky, over frosted
+   glass and on paper, colour is resolved through a small set of
+   CONTEXT tokens (--c-ink, --c-muted, --c-line, --c-gold) that get
+   redefined per context instead of being duplicated per component.
 
    Sections:
-     1. Tokens          6. Why / accordion      11. CTA
-     2. Reset & base    7. Summit (dark)        12. Footer
-     3. Motion system   8. People grids         13. Responsive
-     4. Buttons/bits    9. Partners marquee      14. Reduced motion
-     5. Nav + hero     10. (shared heads)
-   Mobile-first: base rules target phones; min-width queries scale up.
+     1. Tokens + contexts    6. Split + accordion   11. CTA
+     2. Reset & base         7. Summit
+     3. Stage + zone         8. People cards         13. Responsive
+     4. Motion system        9. Partners marquee     14. Reduced motion
+     5. Buttons/bits        10. Nav + hero
+   Mobile-first; fluid clamp() sizing.
    ================================================================== */
 
-/* ---------- 1. TOKENS ---------- */
+/* ---------- 1. TOKENS + CONTEXTS ---------- */
 :root {
-  --bg:       #F0EBE0;  --bg-rgb: 240,235,224;
-  --bg-2:     #E9E1CF;
-  --paper:    #F6F2E9;                        /* lifted card surface */
-  --dark:     #14192E;  --dark-rgb: 20,25,46; /* deeper, richer navy */
-  --dark-2:   #10152475;
-  --accent1:  #C0392B;  --accent1-rgb: 192,57,43;  --accent1-dark:#a8281c;
-  --accent2:  #C79A2E;  --accent2-rgb: 199,154,46; /* softer antique gold */
-  --ink:      #26221C;  --ink-rgb: 38,34,28;
+  /* paper: the page below the stage */
+  --page:    #F4F1E9;  --page-rgb: 244,241,233;
+  --page-2:  #EBE6DA;                              /* tinted band      */
+  --paper:   #FFFFFF;                              /* card surface     */
+  --ink:     #171B24;  --ink-rgb: 23,27,36;
+  --muted:   rgba(23,27,36,.62);
+  --line:    rgba(23,27,36,.13);
+  --accent1: #C0392B;  --accent1-rgb: 192,57,43;   /* Spanish red      */
+  --accent2: #A0731C;  --accent2-rgb: 160,115,28;  /* gold, on paper   */
+
+  /* sky: over the 3D stage */
+  --sky-ink:   #FFFFFF;
+  --sky-muted: rgba(255,255,255,.78);
+  --sky-line:  rgba(255,255,255,.24);
+  --sky-gold:  #F5C978;
+
+  /* resolved per context — see .zone / .panel / .cta */
+  --c-ink: var(--ink); --c-muted: var(--muted); --c-line: var(--line); --c-gold: var(--accent2);
 
   --font-head: 'Fraunces', 'Georgia', serif;
   --font-body: 'Hanken Grotesk', system-ui, sans-serif;
   --font-mono: 'Space Mono', ui-monospace, monospace;
 
-  --maxw: 1200px;
+  --maxw: 1280px;
   --gutter: clamp(24px, 5vw, 60px);
   --section-y: clamp(96px, 14vw, 168px);
 
-  /* motion: heavy, expensive easing */
   --spring: cubic-bezier(0.22, 0.61, 0.36, 1);
   --smooth: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* ---------- 2. RESET & BASE ---------- */
-*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
-  background: var(--bg); color: var(--ink);
+  background: var(--page); color: var(--ink);
   font-family: var(--font-body); font-size: 16px; line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: clip;   /* clip (not hidden) so it does not break position:sticky */
+  -webkit-font-smoothing: antialiased; overflow-x: clip;
 }
 img { display: block; max-width: 100%; height: auto; }
 a { color: inherit; text-decoration: none; }
 ::selection { background: rgba(var(--accent1-rgb), .9); color: #fff; }
 
-/* Film-grain: a fixed, non-interactive texture layer for a paper feel.
-   Kept on a fixed pseudo-element only (never on scrolling content). */
-body::before {
-  content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none;
-  opacity: .04; mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
+/* No grain layer and no hero scrim: the scene runs in full daylight and any
+   fixed overlay on top of it just reads as a dimmer screen. Contrast for the
+   copy comes from ink colour instead. */
 
-/* Section shell */
 .section { position: relative; z-index: 2; padding: var(--section-y) var(--gutter); }
 .section__wrap { max-width: var(--maxw); margin-inline: auto; }
-.section--dark { background: var(--dark); color: var(--bg); }
-.section--tint { background: var(--bg-2); }
 
-/* Headlines lead the section — no stacked kicker label above them */
-.h2 {
-  font-family: var(--font-head); font-weight: 600; font-optical-sizing: auto;
-  font-size: clamp(29px, 3.6vw, 45px); line-height: 1.08;
-  letter-spacing: -.01em;
-}
-.h2 em { font-style: italic; color: var(--accent1); }
-.section--dark .h2 em { color: var(--accent2); }
-.lead {
-  font-size: clamp(16px, 1.7vw, 19px); line-height: 1.65;
-  color: rgba(var(--ink-rgb), .68); margin-top: 26px; max-width: 52ch;
-}
-.section--dark .lead { color: rgba(var(--bg-rgb), .66); }
+.h2 { font-family: var(--font-head); font-weight: 600; font-optical-sizing: auto;
+  font-size: clamp(29px, 3.6vw, 45px); line-height: 1.08; letter-spacing: -.01em; color: var(--c-ink); }
+.h2 em { font-style: italic; color: var(--c-gold); }
+.lead { font-size: clamp(16px, 1.7vw, 19px); line-height: 1.65; color: var(--c-muted); margin-top: 26px; max-width: 52ch; }
 
-/* ---------- 3. MOTION SYSTEM ---------- */
-/* Fade-up with a touch of blur, resolved by JS adding .in.
-   Stagger containers are excluded here so only their children move. */
+/* ---------- 3. STAGE + ZONE ----------
+   .stage is one fixed viewport-sized layer holding the WebGL canvas and
+   its CSS-gradient fallback. .zone is the run of sections that float on
+   it. */
+.stage { position: fixed; inset: 0; z-index: 0; overflow: hidden; background: #6FB0DF; }
+.stage__sky { position: absolute; inset: 0;
+  background: linear-gradient(180deg, #2C82D6 0%, #6FB0DF 48%, #C7DEEF 80%, #DCEDF9 100%); }
+/* warms toward late afternoon across the flight, driven by --zone-t (main.js) */
+.stage__sky::after { content: ""; position: absolute; inset: 0; opacity: var(--zone-t, 0);
+  background: linear-gradient(180deg, #2E86CE 0%, #7FB6DF 46%, #D8CFC0 82%, #FBE3C4 100%); }
+.stage__canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  opacity: 0; transition: opacity 1.2s var(--smooth); }
+.stage__canvas.is-on { opacity: 1; }
+
+/* Sections over the stage read on a dark sky → light ink */
+.zone { position: relative; z-index: 2; color: var(--ink); }
+.zone > .section { padding-block: clamp(64px, 10vw, 128px); }
+
+/* Frosted card. Only used when the 3D stage is unavailable — with the stage
+   running, these sections' content lives on the bridge's signage instead and
+   the panels would cut the flight into boxes. */
+:root:not(.stage-on) .panel {
+  --c-ink: var(--ink); --c-muted: var(--muted); --c-line: var(--line); --c-gold: var(--accent2);
+  color: var(--ink);
+  background: rgba(255,255,255,.76);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4); backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(255,255,255,.8); border-radius: clamp(18px, 2.4vw, 30px);
+  padding: clamp(28px, 4.4vw, 64px);
+  box-shadow: 0 50px 110px -50px rgba(10,25,55,.6), inset 0 1px 0 rgba(255,255,255,.7);
+}
+@supports not (backdrop-filter: blur(1px)) { .panel { background: rgba(255,255,255,.94); } }
+
+/* The flight is the page. Everything these sections say is carried by the
+   gantries and billboards on the bridge, so with WebGL running their DOM copy
+   is not painted — the markup stays for SEO and for the no-WebGL fallback,
+   and their box keeps its height so the camera still has that much scroll to
+   travel through. */
+.stage-on .why .section__wrap,
+.stage-on .summit .section__wrap,
+.stage-on .speakers .section__wrap,
+.stage-on .team .section__wrap,
+.stage-on .partners .section__wrap,
+.stage-on .partners .marquee { visibility: hidden; }
+/* Hidden content must not swallow clicks either — the 3D speaker cards are
+   picked by raycast from a window-level listener, and an invisible section
+   sitting on top would eat every one of them. */
+.stage-on .why, .stage-on .summit, .stage-on .speakers,
+.stage-on .team, .stage-on .partners { pointer-events: none; }
+.stage-on .partners::before { display: none; }
+
+
+/* ---------- 4. MOTION SYSTEM ---------- */
 [data-anim]:not([data-anim="stagger"]) { opacity: 0; transform: translateY(34px); filter: blur(6px);
   transition: opacity .9s var(--smooth), transform .9s var(--smooth), filter .9s var(--smooth); }
 [data-anim]:not([data-anim="stagger"]).in { opacity: 1; transform: none; filter: none; }
-/* staggered children: --i set by JS */
 [data-anim="stagger"] > * { opacity: 0; transform: translateY(38px); filter: blur(6px);
   transition: opacity .8s var(--smooth), transform .8s var(--smooth), filter .8s var(--smooth);
   transition-delay: calc(var(--i, 0) * 90ms); }
 [data-anim="stagger"].in > * { opacity: 1; transform: none; filter: none; }
-/* headline mask: inner slides up out of an overflow-clip */
 .mask { overflow: hidden; padding-bottom: .08em; }
 .mask > * { display: block; transform: translateY(115%); transition: transform 1s var(--smooth); }
 .mask.in > * { transform: none; }
 
-/* ---------- 4. BUTTONS & SMALL BITS ---------- */
+/* ---------- 5. BUTTONS & SMALL BITS ---------- */
 .btn {
-  --py: 16px; --px: 30px;
+  --py: 15px; --px: 28px;
   position: relative; display: inline-flex; align-items: center; gap: 14px;
   font: 600 15px var(--font-body); padding: var(--py) var(--px);
   border-radius: 999px; border: 1px solid transparent; cursor: pointer;
-  transition: transform .5s var(--smooth), background .4s var(--spring), color .3s, border-color .3s;
+  transition: transform .5s var(--smooth), background .4s var(--spring), color .3s, border-color .3s, box-shadow .4s var(--smooth);
 }
 .btn:active { transform: scale(.97); }
 .btn--sm { --py: 11px; --px: 22px; font-size: 14px; gap: 10px; }
-.btn__ico {                          /* nested "button-in-button" arrow */
-  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(255,255,255,.16);
-  transition: transform .5s var(--smooth), background .3s;
-}
+.btn__ico { width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.2); transition: transform .5s var(--smooth), background .3s; }
 .btn--sm .btn__ico { width: 22px; height: 22px; }
 .btn__ico svg { width: 12px; height: 12px; }
 .btn:hover .btn__ico { transform: translate(3px, -3px); }
-.btn--primary { background: var(--accent1); color: #fff; }
-.btn--primary:hover { background: var(--accent1-dark); }
-.btn--ghost { background: transparent; color: var(--ink); border-color: rgba(var(--ink-rgb), .28); }
-.btn--ghost .btn__ico { background: rgba(var(--ink-rgb), .08); }
-.btn--ghost:hover { border-color: rgba(var(--ink-rgb), .55); }
-.btn--onDark { color: var(--bg); border-color: rgba(var(--bg-rgb), .4); }
-.btn--onDark .btn__ico { background: rgba(var(--bg-rgb), .14); }
-.btn--onDark:hover { border-color: var(--bg); }
+.btn--primary { background: linear-gradient(135deg, #D9503C 0%, #B02F22 100%); color: #fff;
+  box-shadow: 0 12px 34px -10px rgba(var(--accent1-rgb), .7), inset 0 1px 0 rgba(255,255,255,.3); }
+.btn--primary:hover { transform: translateY(-2px); box-shadow: 0 20px 48px -10px rgba(var(--accent1-rgb), .85), inset 0 1px 0 rgba(255,255,255,.38); }
+/* Same treatment as the primary, in the gold the subheading uses, so the two
+   calls to action read as a pair rather than a button and a link. */
+.btn--gold { background: linear-gradient(135deg, #F7DCA0 0%, #DDA83C 100%); color: #3A2A08;
+  box-shadow: 0 12px 34px -10px rgba(221,168,60,.7), inset 0 1px 0 rgba(255,255,255,.5); }
+.btn--gold .btn__ico { background: rgba(58,42,8,.14); }
+.btn--gold:hover { transform: translateY(-2px); box-shadow: 0 20px 48px -10px rgba(221,168,60,.9), inset 0 1px 0 rgba(255,255,255,.6); }
+/* ghost adapts to whatever context it lands in */
+.btn--ghost, .btn--onDark { background: rgba(var(--ink-rgb), .04); color: var(--c-ink); border-color: var(--c-line); }
+.btn--ghost .btn__ico, .btn--onDark .btn__ico { background: rgba(var(--ink-rgb), .08); }
+.btn--ghost:hover, .btn--onDark:hover { transform: translateY(-2px); border-color: var(--c-ink); }
+.zone .btn--ghost, .zone .btn--onDark, .cta .btn--ghost {
+  background: rgba(255,255,255,.62); border-color: rgba(23,27,36,.2); color: var(--ink);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.zone .btn--ghost .btn__ico, .cta .btn--ghost .btn__ico { background: rgba(23,27,36,.08); }
+.zone .btn--ghost:hover, .cta .btn--ghost:hover { background: rgba(255,255,255,.85); border-color: rgba(23,27,36,.45); }
 
-/* Logomark (rising bars) */
 .logomark { display: inline-flex; align-items: flex-end; gap: 3px; height: 24px; }
 .logomark > span { width: 6px; transform: skewX(-12deg); }
 .logomark > span:nth-child(1){ height:10px; background: var(--accent1); }
-.logomark > span:nth-child(2){ height:15px; background: var(--accent2); }
+.logomark > span:nth-child(2){ height:15px; background: var(--accent1); }
 .logomark > span:nth-child(3){ height:19px; background: var(--accent1); }
-.logomark > span:nth-child(4){ height:24px; background: var(--accent2); }
+.logomark > span:nth-child(4){ height:24px; background: #E0A53A; }
 
-/* ---------- 5. NAV + HERO ---------- */
-.nav {
-  position: fixed; inset: 0 0 auto 0; z-index: 100;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px var(--gutter);
-  transition: padding .4s var(--spring), background .4s var(--spring), box-shadow .4s var(--spring);
-}
-.nav.is-scrolled {
-  padding-top: 13px; padding-bottom: 13px;
-  background: rgba(var(--bg-rgb), .8); backdrop-filter: blur(14px) saturate(1.2);
-  box-shadow: 0 1px 0 rgba(var(--ink-rgb), .07);
-}
-.nav__brand { display: flex; align-items: center; gap: 12px; }
-/* Default = dark text (for the scrolled ivory nav and the open menu overlay).
-   A light override kicks in only while the nav floats over the dark hero. */
-.nav__brandtext { font: 700 11px var(--font-mono); letter-spacing: 2.5px; white-space: nowrap; color: var(--ink); transition: color .3s; }
-.nav__links { display: flex; align-items: center; gap: 30px; }
-.navlink { position: relative; font: 500 13.5px var(--font-body); color: rgba(var(--ink-rgb), .68); transition: color .3s; }
-.navlink::after { content: ""; position: absolute; left: 0; bottom: -5px; width: 100%; height: 1px;
-  background: var(--accent1); transform: scaleX(0); transform-origin: left; transition: transform .4s var(--smooth); }
-.navlink:hover { color: var(--ink); }
-.navlink:hover::after { transform: scaleX(1); }
-
-.langtoggle { display: inline-flex; border: 1px solid rgba(var(--ink-rgb), .22); border-radius: 999px; overflow: hidden; }
-.langtoggle__btn { font: 700 11px var(--font-mono); letter-spacing: 1px; padding: 6px 11px; background: none; border: 0; cursor: pointer; color: rgba(var(--ink-rgb), .5); transition: background .3s, color .3s; }
-.langtoggle__btn.is-active { background: var(--ink); color: var(--bg); }
-
-.nav__burger { display: none; flex-direction: column; gap: 5px; width: 42px; height: 42px; align-items: center; justify-content: center; background: none; border: 0; cursor: pointer; }
-.nav__burger span { width: 22px; height: 1.5px; background: var(--ink); border-radius: 2px; transition: transform .4s var(--smooth), opacity .25s, background .3s; }
-.nav__burger.is-open span:nth-child(1){ transform: translateY(6.5px) rotate(45deg); }
-.nav__burger.is-open span:nth-child(2){ opacity: 0; }
-.nav__burger.is-open span:nth-child(3){ transform: translateY(-6.5px) rotate(-45deg); }
-
-/* Light override: nav over the hero (not yet scrolled, menu closed) */
-.nav:not(.is-scrolled):not(.menu-open) .nav__brandtext { color: var(--bg); }
-.nav:not(.is-scrolled):not(.menu-open) .navlink { color: rgba(var(--bg-rgb), .82); }
-.nav:not(.is-scrolled):not(.menu-open) .navlink::after { background: var(--accent2); }
-.nav:not(.is-scrolled):not(.menu-open) .navlink:hover { color: #fff; }
-.nav:not(.is-scrolled):not(.menu-open) .nav__burger span { background: var(--bg); }
-.nav:not(.is-scrolled):not(.menu-open) .langtoggle { border-color: rgba(var(--bg-rgb), .34); }
-.nav:not(.is-scrolled):not(.menu-open) .langtoggle__btn { color: rgba(var(--bg-rgb), .66); }
-.nav:not(.is-scrolled):not(.menu-open) .langtoggle__btn.is-active { background: var(--bg); color: var(--dark); }
-
-/* Footer language toggle (always over the dark footer → light) */
-.langtoggle--dark { border-color: rgba(var(--bg-rgb), .3); }
-.langtoggle--dark .langtoggle__btn { color: rgba(var(--bg-rgb), .62); }
-.langtoggle--dark .langtoggle__btn.is-active { background: var(--bg); color: var(--dark); }
-
-/* Hero */
-.hero { position: relative; min-height: 100svh; display: flex; align-items: flex-end; overflow: hidden; background: var(--dark); z-index: 2; }
-.hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; will-change: transform; }
-.hero__scrim { position: absolute; inset: 0;
-  background: linear-gradient(180deg, rgba(var(--dark-rgb),.55) 0%, rgba(var(--dark-rgb),.15) 34%, rgba(var(--dark-rgb),.96) 100%); }
-.hero__inner { position: relative; z-index: 2; width: 100%; max-width: var(--maxw); margin-inline: auto; padding: 0 var(--gutter) clamp(76px, 13vh, 150px); }
-.hero__title { font-family: var(--font-head); font-weight: 500; font-optical-sizing: auto; font-size: clamp(42px, 7.4vw, 82px); line-height: 1; letter-spacing: -.015em; color: var(--bg); max-width: 16ch; }
-.hero__title em { font-style: italic; }   /* italic emphasis, same ivory as the title */
-.hero__sub { margin-top: 26px; font-size: clamp(16px, 2vw, 19px); line-height: 1.55; color: rgba(var(--bg-rgb), .82); max-width: 46ch; }
-.hero__actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 38px; }
-/* Scroll cue: centered at the bottom, with a bouncing chevron */
-.hero__scroll { position: absolute; z-index: 2; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; color: rgba(var(--bg-rgb), .62); }
-.hero__scrolltxt { font: 700 10px var(--font-mono); letter-spacing: 3px; text-transform: uppercase; }
-.hero__chevron { width: 11px; height: 11px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); animation: bounce 1.8s var(--smooth) infinite; }
-@keyframes bounce { 0%, 100% { transform: rotate(45deg) translate(-2px, -2px); opacity: .45; } 50% { transform: rotate(45deg) translate(2px, 2px); opacity: 1; } }
-
-/* ---------- 6. SPLIT LAYOUT + ACCORDION ---------- */
-/* Shared by why / summit / speakers / team: sticky headline on the left,
-   content on the right. Fills the space that used to sit empty beside titles. */
+/* ---------- 6. SPLIT + ACCORDION ---------- */
 .split { display: grid; grid-template-columns: 1fr; gap: clamp(36px, 6vw, 60px); align-items: start; }
 .split__head { max-width: 42ch; }
 .split__head .lead { margin-bottom: 0; }
+.split__body { min-width: 0; }
 
-.accordion { border-top: 1px solid rgba(var(--ink-rgb), .16); }
-.accordion__item { border-bottom: 1px solid rgba(var(--ink-rgb), .16); }
-.accordion__head { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; padding: 26px 2px; background: none; border: 0; cursor: pointer; text-align: left; transition: padding-left .4s var(--smooth); }
+.accordion { border-top: 1px solid var(--c-line); }
+.accordion__item { border-bottom: 1px solid var(--c-line); }
+.accordion__head { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; padding: 24px 2px; background: none; border: 0; cursor: pointer; text-align: left; color: var(--c-ink); transition: padding-left .4s var(--smooth); }
 .accordion__head:hover { padding-left: 8px; }
 .accordion__label { font-family: var(--font-head); font-size: clamp(21px, 2.6vw, 27px); font-weight: 500; letter-spacing: -.01em; transition: color .3s; }
 .accordion__item.is-open .accordion__label { color: var(--accent1); }
@@ -215,30 +198,25 @@ body::before {
 .accordion__sign::after  { width: 1.5px; height: 16px; transform: translate(-50%,-50%); }
 .accordion__item.is-open .accordion__sign::after { opacity: 0; transform: translate(-50%,-50%) rotate(90deg); }
 .accordion__panel { max-height: 0; overflow: hidden; transition: max-height .5s var(--smooth); }
-.ticks { list-style: none; padding: 4px 2px 30px; display: flex; flex-direction: column; }
-.ticks li { font-size: clamp(15px, 1.5vw, 16.5px); line-height: 1.55; color: rgba(var(--ink-rgb), .72); padding: 13px 0; border-top: 1px solid rgba(var(--ink-rgb), .08); }
+.ticks { list-style: none; padding: 4px 2px 28px; display: flex; flex-direction: column; }
+.ticks li { font-size: clamp(15px, 1.5vw, 16.5px); line-height: 1.55; color: var(--c-muted); padding: 13px 0; border-top: 1px solid var(--c-line); }
 .ticks li:first-child { border-top: 0; }
 
-/* ---------- 7. SUMMIT (dark) ---------- */
+/* ---------- 7. SUMMIT ---------- */
 .pillars { display: grid; grid-template-columns: 1fr; gap: 0; }
-.pillar { padding: clamp(34px,4vw,44px) 0; border-top: 1px solid rgba(var(--bg-rgb), .16); display: grid; grid-template-columns: auto 1fr; gap: clamp(20px, 4vw, 48px); align-items: start; }
-.pillar__no { font-family: var(--font-head); font-weight: 500; font-size: clamp(28px, 4vw, 40px); font-style: italic; color: rgba(var(--accent2-rgb), .85); line-height: 1; min-width: 1.6em; }
-.pillar__title { font-family: var(--font-head); font-weight: 500; font-size: clamp(24px, 3vw, 30px); margin-bottom: 12px; }
-.pillar__body { font-size: clamp(15px, 1.5vw, 16.5px); line-height: 1.62; color: rgba(var(--bg-rgb), .66); max-width: 62ch; }
-.pillar:last-child { border-bottom: 1px solid rgba(var(--bg-rgb), .16); }
-
+.pillar { padding: clamp(30px,3.6vw,42px) 0; border-top: 1px solid var(--c-line); display: grid; grid-template-columns: auto 1fr; gap: clamp(20px, 4vw, 48px); align-items: start; }
+.pillar__no { font-family: var(--font-head); font-weight: 500; font-size: clamp(28px, 4vw, 40px); font-style: italic; color: var(--c-gold); line-height: 1; min-width: 1.6em; }
+.pillar__title { font-family: var(--font-head); font-weight: 500; font-size: clamp(24px, 3vw, 30px); margin-bottom: 12px; color: var(--c-ink); }
+.pillar__body { font-size: clamp(15px, 1.5vw, 16.5px); line-height: 1.62; color: var(--c-muted); max-width: 62ch; }
+.pillar:last-child { border-bottom: 1px solid var(--c-line); }
 .facts { display: flex; flex-wrap: wrap; gap: clamp(24px, 4vw, 40px); margin-top: clamp(32px, 5vw, 48px); }
-.fact dt { font: 700 10.5px var(--font-mono); letter-spacing: 2.5px; color: var(--accent2); margin-bottom: 10px; }
-.fact dd { font-size: clamp(16px, 1.7vw, 18px); color: rgba(var(--bg-rgb), .88); }
+.fact dt { font: 700 10.5px var(--font-mono); letter-spacing: 2.5px; color: var(--accent1); margin-bottom: 10px; }
+.fact dd { font-size: clamp(16px, 1.7vw, 18px); color: var(--c-ink); }
 
-/* ---------- 8. PEOPLE CAROUSEL + FLIP CARDS ---------- */
-.split__body { min-width: 0; }   /* let the carousel scroll instead of stretching the grid column */
-
-/* Single-line horizontal carousel: drag with the mouse or swipe to browse. */
+/* ---------- 8. PEOPLE CARDS ---------- */
 .carousel {
   display: flex; gap: clamp(14px, 1.6vw, 20px);
-  overflow-x: auto; overflow-y: hidden;
-  scroll-snap-type: x mandatory;
+  overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
   padding: 10px 2px 18px; margin-top: -10px;
   cursor: grab; user-select: none; scrollbar-width: none;
   -webkit-mask-image: linear-gradient(90deg, #000 90%, transparent);
@@ -246,104 +224,445 @@ body::before {
 }
 .carousel::-webkit-scrollbar { display: none; }
 .carousel.is-dragging { cursor: grabbing; scroll-snap-type: none; }
-
-/* Card: fixed width, 3:4 flip surface (front photo / back detail) */
 .person { flex: 0 0 clamp(210px, 62vw, 258px); scroll-snap-align: start; perspective: 1200px; outline: none; }
 .carousel--sm .person { flex-basis: clamp(170px, 50vw, 208px); }
-.person__inner { position: relative; width: 100%; aspect-ratio: 3/4; transform-style: preserve-3d; transition: transform .7s var(--smooth); border-radius: 12px; box-shadow: 0 18px 40px -24px rgba(var(--ink-rgb), .55); }
+.person__inner { position: relative; width: 100%; aspect-ratio: 3/4; transform-style: preserve-3d; transition: transform .7s var(--smooth), box-shadow .5s var(--smooth); border-radius: 14px; box-shadow: 0 20px 44px -26px rgba(20,25,45,.55); }
 .person.is-flipped .person__inner { transform: rotateY(180deg); }
 .person:focus-visible .person__inner { box-shadow: 0 0 0 2px var(--accent1); }
-
-.person__face { position: absolute; inset: 0; border-radius: 12px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.person__front { background: var(--bg-2); }
-.person__front img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(28%) contrast(1.02); transition: filter .6s var(--smooth); -webkit-user-drag: none; pointer-events: none; }
-.person:hover .person__front img { filter: grayscale(0%); }
-.person__front::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 34%, rgba(var(--dark-rgb), .5) 62%, rgba(var(--dark-rgb), .94)); }
+.person__face { position: absolute; inset: 0; border-radius: 14px; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.person__front { background: var(--paper); border: 1px solid var(--line); }
+.person__front img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.04); transition: filter .6s var(--smooth), transform .8s var(--smooth); -webkit-user-drag: none; pointer-events: none; }
+.person:hover .person__front img { filter: grayscale(0); transform: scale(1.05); }
+.person__front::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12,16,28,0) 38%, rgba(12,16,28,.5) 66%, rgba(12,16,28,.92)); }
+/* A monogram, not a photograph. These are real people who have not agreed to
+   appear here; a stock portrait under a real name would misrepresent them.
+   Four colourways off the palette, matching the 3D cards in scene.js. */
+.person__mono {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--mono-bg, #C0392B); color: var(--mono-fg, #FBF4E4);
+  transition: transform .8s var(--smooth);
+}
+.person__mono span { font-family: var(--font-head); font-weight: 600; font-size: clamp(52px, 9vw, 92px); line-height: 1; letter-spacing: -.02em; }
+.person:hover .person__mono { transform: scale(1.05); }
+.person--t0 { --mono-bg: #C0392B; --mono-fg: #FBF4E4; }
+.person--t1 { --mono-bg: #E5B84B; --mono-fg: #1B2030; }
+.person--t2 { --mono-bg: #1B2030; --mono-fg: #FBF4E4; }
+.person--t3 { --mono-bg: #FBF4E4; --mono-fg: #1B2030; }
 .person__meta { position: absolute; left: 16px; right: 16px; bottom: 15px; color: #fff; }
-.person__name { display: block; font-size: 15.5px; font-weight: 700; text-shadow: 0 1px 10px rgba(0,0,0,.55); }
-.person__role { display: block; font-size: 12.5px; color: rgba(255,255,255,.9); margin-top: 2px; text-shadow: 0 1px 8px rgba(0,0,0,.55); }
-.person__hint { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(var(--bg-rgb), .16); backdrop-filter: blur(4px); color: var(--bg); transition: background .3s; }
-.person:hover .person__hint { background: rgba(var(--bg-rgb), .3); }
+.person__name { display: block; font-size: 15.5px; font-weight: 700; }
+.person__role { display: block; font-size: 12.5px; color: #F0C070; margin-top: 3px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+.person__hint { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.22); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.4); color: #fff; transition: background .3s; }
+.person:hover .person__hint { background: rgba(var(--accent1-rgb), .8); }
 .person__hint svg { width: 14px; height: 14px; }
-
-.person__back { transform: rotateY(180deg); background: var(--dark); color: var(--bg); display: flex; flex-direction: column; justify-content: space-between; gap: 16px; padding: clamp(20px, 3vw, 26px); }
-.person__bio { font-size: clamp(13.5px, 1.5vw, 15px); line-height: 1.55; color: rgba(var(--bg-rgb), .82); }
-.person__link { display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; padding: 9px 15px; border-radius: 999px; background: rgba(var(--bg-rgb), .1); border: 1px solid rgba(var(--bg-rgb), .22); font: 600 13px var(--font-body); color: var(--bg); transition: background .3s, border-color .3s; }
-.person__link:hover { background: rgba(var(--bg-rgb), .18); border-color: rgba(var(--bg-rgb), .42); }
-.person__link svg { width: 17px; height: 17px; }
+.person__back { transform: rotateY(180deg); background: var(--paper); border: 1px solid var(--line); color: var(--ink); display: flex; flex-direction: column; justify-content: space-between; gap: 16px; padding: clamp(20px, 3vw, 26px); }
+.person__bio { font-size: clamp(13.5px, 1.5vw, 15px); line-height: 1.55; color: var(--muted); }
+.person__link { display: inline-flex; align-items: center; gap: 9px; align-self: flex-start; padding: 9px 15px; border-radius: 999px; background: rgba(var(--ink-rgb), .04); border: 1px solid var(--line); font: 600 13px var(--font-body); color: var(--ink); transition: background .3s, border-color .3s; }
+.person__link:hover { background: rgba(var(--accent1-rgb), .1); border-color: rgba(var(--accent1-rgb), .5); }
+.person__link svg { width: 17px; height: 17px; color: var(--accent1); }
 .carousel--sm .person__bio { font-size: 13px; }
 .carousel--sm .person__link { padding: 8px 13px; font-size: 12px; }
+.person:hover .person__inner { box-shadow: 0 30px 60px -28px rgba(20,25,45,.6), 0 0 0 1px rgba(var(--accent1-rgb), .3); }
 
-/* ---------- 9. PARTNERS MARQUEE ---------- */
-.partners__lead { max-width: 46ch; margin-bottom: clamp(44px, 6vw, 64px); }
-.marquee { position: relative; overflow: hidden; margin-inline: calc(-1 * var(--gutter)); /* full-bleed to viewport edges */ -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-.marquee + .marquee { margin-top: 14px; }
-/* No gap here: each brand owns its trailing space via margin-right, so the
-   duplicated track is exactly 2x one set and translateX(-50%) loops seamlessly. */
-.marquee__track { display: flex; align-items: center; width: max-content; animation: marquee var(--dur, 46s) linear infinite; }
+.head { max-width: 46ch; margin-bottom: clamp(40px, 6vw, 64px); }
+.speakergrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: clamp(16px, 2vw, 26px); }
+@media (min-width: 620px) { .speakergrid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 980px) { .speakergrid { grid-template-columns: repeat(4, 1fr); } }
+.speakergrid .person { flex: none; width: 100%; }
+
+/* ---------- 9. PARTNERS MARQUEE ----------
+   Sits over the golden-hour part of the flight, so it gets its own
+   frosted band with soft edges to keep the wordmarks legible. */
+.marks { position: absolute; width: 0; height: 0; overflow: hidden; }
+.partners { overflow: hidden; }
+/* No band, no blur — the wordmarks sit straight on the sky and lean on a
+   text shadow for contrast, so nothing boxes off the bridge behind them. */
+.partners__head, .brand { text-shadow: 0 2px 16px rgba(255,255,255,.9), 0 1px 4px rgba(255,255,255,.75); }
+.brand__ico { filter: drop-shadow(0 2px 8px rgba(255,255,255,.9)); }
+.partners__head { margin-bottom: clamp(32px, 5vw, 52px); }
+.partners__note { margin-top: 16px; font-size: clamp(15px, 1.6vw, 17px); color: var(--c-muted); max-width: 46ch; }
+.marquee { position: relative; overflow: hidden; margin-inline: calc(-1 * var(--gutter));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent); }
+.marquee + .marquee { margin-top: clamp(14px, 2vw, 22px); }
+.marquee__track { display: flex; align-items: center; width: max-content; animation: marquee var(--dur, 64s) linear infinite; }
 .marquee--rev .marquee__track { animation-direction: reverse; }
 .marquee:hover .marquee__track { animation-play-state: paused; }
 @keyframes marquee { to { transform: translateX(-50%); } }
-.brand { font-family: var(--font-head); font-weight: 600; font-size: clamp(20px, 2.4vw, 27px); letter-spacing: .01em; color: rgba(var(--ink-rgb), .34); white-space: nowrap; margin-right: clamp(40px, 6vw, 80px); transition: color .4s var(--smooth); }
-.brand:hover { color: rgba(var(--ink-rgb), .78); }
 
-.partners__head { margin-bottom: clamp(40px, 6vw, 60px); }
+.brand { display: inline-flex; align-items: center; gap: clamp(10px, 1.1vw, 15px);
+  margin-right: clamp(38px, 5vw, 72px); white-space: nowrap;
+  color: rgba(23,27,36,.72); transition: color .4s var(--smooth); }
+.brand:hover { color: var(--accent1); }
+.brand__ico { width: clamp(26px, 2.6vw, 34px); height: clamp(26px, 2.6vw, 34px); flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.brand__txt { font-family: var(--font-head); font-weight: 600; font-size: clamp(19px, 2.2vw, 26px); letter-spacing: .01em; }
 
-/* ---------- 10. CTA ---------- */
-.cta { text-align: center; }
+/* ---------- 10. NAV + HERO ---------- */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px var(--gutter);
+  /* default context = floating over the daylight 3D stage */
+  --c-ink: var(--ink); --c-muted: var(--muted); --c-line: var(--line);
+  transition: padding .4s var(--spring), background .4s var(--spring), box-shadow .4s var(--spring);
+}
+/* No bar. A frosted panel with a hard bottom edge cut a straight line across
+   the 3D scene and broke the illusion that the page sits inside it. The nav
+   floats instead, over an edgeless wash that fades to nothing — legibility
+   comes from the ink and its halo, not from a plate behind it. */
+.nav::before {
+  content: ""; position: absolute; inset: -8px 0 auto 0; height: 190%; z-index: -1;
+  pointer-events: none; opacity: 0; transition: opacity .5s var(--spring);
+  background: linear-gradient(180deg, rgba(250,252,254,.62) 0%, rgba(250,252,254,.34) 46%, rgba(250,252,254,0) 100%);
+}
+.nav.is-scrolled { padding-top: 13px; padding-bottom: 13px; }
+.nav.is-scrolled::before { opacity: 1; }
+/* past the stage, the nav floats over ivory paper → dark ink */
+.nav__brandtext {
+  text-shadow: 0 1px 2px rgba(255,255,255,.95), 0 1px 12px rgba(255,255,255,.9), 0 0 22px rgba(255,255,255,.7);
+}
+.nav__brand .logomark { filter: drop-shadow(0 1px 6px rgba(255,255,255,.9)); }
+/* the open mobile overlay is always dark, so force light ink over it */
+.nav.menu-open { --c-ink: #fff; --c-muted: rgba(255,255,255,.8); --c-line: rgba(255,255,255,.3); background: none; }
+
+/* Three slots: language left, navigation centred, calls to action right. The
+   links are centred on the bar itself rather than balanced between the two
+   side groups, so they stay put whatever those groups weigh. */
+.nav__links { position: absolute; left: 50%; transform: translateX(-50%); }
+.nav__ctas { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+/* With the stage running the 3D headline carries the name, so the wordmark
+   comes out of the bar. It stays for the no-WebGL page. */
+.stage-on .nav__brand {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%);
+}
+.nav__brand { display: flex; align-items: center; gap: 12px; }
+.nav__brandtext { font: 700 11px var(--font-mono); letter-spacing: 2.5px; white-space: nowrap; color: var(--c-ink); transition: color .3s; }
+/* One hard-cut pill, built like the language toggle. Muted ink under a white
+   halo was near-invisible over a pale sky — a halo cannot separate grey text
+   from a bright background, it only softens the one edge it has. A solid plate
+   reads over anything the flight puts behind it, and it doubles as the progress
+   indicator: `is-here` marks the station you are standing at. */
+.nav__links {
+  display: flex; align-items: stretch; overflow: hidden;
+  border: 2px solid #171B24; border-radius: 999px; background: #FBF4E4;
+  box-shadow: 2px 2px 0 rgba(23,27,36,.85);
+}
+.navlink {
+  display: flex; align-items: center; padding: 7px 17px;
+  font: 600 13px var(--font-body); color: rgba(23,27,36,.62);
+  text-shadow: none; white-space: nowrap;
+  transition: background .25s, color .25s;
+}
+.navlink + .navlink { border-left: 2px solid #171B24; }   /* the cut */
+.navlink:hover { background: rgba(23,27,36,.09); color: #171B24; }
+.navlink.is-here { background: #171B24; color: #FBF4E4; }
+
+/* A hard-cut pill: round outside, one straight line down the middle. The
+   frosted-glass version read as a different design language to the flat fills
+   and hard ink edges the rest of the site uses, and its white text halo blurred
+   the very edge that should be crispest. Self-contained colour (not the context
+   tokens) so the one chip works over sky, paper and the dark menu alike. */
+.langtoggle { display: inline-flex; align-items: stretch; overflow: hidden;
+  border: 2px solid #171B24; border-radius: 999px; background: #FBF4E4;
+  box-shadow: 2px 2px 0 rgba(23,27,36,.85); }
+.langtoggle__btn { font: 700 11px var(--font-mono); letter-spacing: 1px;
+  min-width: 46px; padding: 6px 12px; background: none; border: 0; border-radius: 0;
+  cursor: pointer; color: rgba(23,27,36,.6); text-shadow: none;
+  transition: background .25s, color .25s; }
+.langtoggle__btn + .langtoggle__btn { border-left: 2px solid #171B24; }   /* the cut */
+.langtoggle__btn:not(.is-active):hover { background: rgba(23,27,36,.08); }
+.langtoggle__btn.is-active { background: #171B24; color: #FBF4E4; }
+
+.nav__burger { display: none; flex-direction: column; gap: 5px; width: 42px; height: 42px; align-items: center; justify-content: center; background: none; border: 0; cursor: pointer; }
+.nav__burger span { width: 22px; height: 1.5px; background: var(--c-ink); border-radius: 2px; transition: transform .4s var(--smooth), opacity .25s, background .3s; }
+.nav__burger.is-open span:nth-child(1){ transform: translateY(6.5px) rotate(45deg); }
+.nav__burger.is-open span:nth-child(2){ opacity: 0; }
+.nav__burger.is-open span:nth-child(3){ transform: translateY(-6.5px) rotate(-45deg); }
+
+/* Hero — fully transparent; the 3D stage behind it is the background */
+.hero { position: relative; min-height: 100svh; display: flex; align-items: flex-end; z-index: 2; }
+.zone > .hero { padding: 0; }
+.hero__scrim { display: none; }
+
+.hero__inner { position: relative; z-index: 2; width: 100%; max-width: var(--maxw); margin-inline: auto; padding: 0 var(--gutter) clamp(76px, 13vh, 140px);
+  perspective: 900px; perspective-origin: 68% 45%; }
+/* Copy blocks out on the RIGHT so the bridge owns the left of the frame.
+   It rides the Z axis on scroll (--hero-p, set in main.js) so it comes toward
+   the viewer and dissolves as the camera enters the bridge — the headline
+   behaves like a plane standing in the scene, not an overlay on the glass.
+   No wash behind it: even a soft radial one read as a translucent panel with
+   visible edges sitting on the scene. Contrast comes from the ink and a tight
+   halo on the glyphs instead. */
+.hero__copy {
+  max-width: 34rem; margin-left: auto; position: relative;
+  transform: translate3d(0, 0, calc(var(--hero-p, 0) * 300px));
+  opacity: clamp(0, calc(1 - var(--hero-p, 0) * 1.45), 1);
+  will-change: transform, opacity;
+}
+@media (max-width: 900px) { .hero__copy { margin-left: 0; max-width: none; } }
+.hero__title { font-family: var(--font-head); font-weight: 500; font-optical-sizing: auto; font-size: clamp(42px, 7.4vw, 84px); line-height: 1; letter-spacing: -.02em; color: var(--ink); max-width: 15ch;
+  text-shadow: 0 1px 2px rgba(255,255,255,.95), 0 2px 10px rgba(255,255,255,.9), 0 4px 30px rgba(247,250,252,.85);
+  transform-style: preserve-3d; transition: transform .25s ease-out; will-change: transform; }
+.hero__event { display: block; margin-top: .35em; font: 700 clamp(12px,1.3vw,15px) var(--font-mono);
+  letter-spacing: 2px; text-transform: uppercase; color: var(--accent1); }
+.hero__title em { font-style: italic; color: var(--accent1); text-shadow: 0 1px 2px rgba(255,255,255,.95), 0 2px 20px rgba(247,250,252,.85); }
+.hero__sub { margin-top: 26px; font-size: clamp(16px, 2vw, 19px); line-height: 1.55; color: rgba(23,27,36,.9); max-width: 46ch; text-shadow: 0 1px 2px rgba(255,255,255,.95), 0 1px 14px rgba(255,255,255,.9); }
+.hero__actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 38px; }
+
+.hero__stats { display: flex; flex-wrap: wrap; gap: clamp(26px, 4.5vw, 60px); margin-top: clamp(40px, 6vw, 60px); }
+.stat { display: flex; flex-direction: column; gap: 5px; }
+.stat__val { display: flex; align-items: baseline; gap: 1px; font-family: var(--font-head); font-weight: 600; font-size: clamp(30px, 3.6vw, 44px); line-height: 1; color: var(--ink); text-shadow: 0 1px 16px rgba(255,255,255,.85); }
+.stat__suffix { color: var(--accent1); }
+.stat__label { font: 700 10.5px var(--font-mono); letter-spacing: 2px; text-transform: uppercase; color: rgba(23,27,36,.7); text-shadow: 0 1px 10px rgba(255,255,255,.8); }
+
+/* Pinned to the viewport, not to the hero box — parked inside the section it
+   scrolled up and away with the page. It fades out as soon as the flight
+   starts, driven by --hero-p (main.js), so it never lingers. */
+.hero__scroll {
+  position: fixed; z-index: 3; left: 50%; bottom: 26px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: rgba(23,27,36,.66); text-shadow: 0 1px 10px rgba(255,255,255,.8);
+  opacity: clamp(0, calc(1 - var(--hero-p, 0) * 3), 1);
+  pointer-events: none;
+}
+.hero__scrolltxt { font: 700 10px var(--font-mono); letter-spacing: 3px; text-transform: uppercase; }
+.hero__chevron { width: 11px; height: 11px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); animation: bounce 1.8s var(--smooth) infinite; }
+@keyframes bounce { 0%,100%{ transform: rotate(45deg) translate(-2px,-2px); opacity: .4 } 50%{ transform: rotate(45deg) translate(2px,2px); opacity: 1 } }
+
+/* ---------- 11. CTA / ARRIVAL ---------- */
+/* Sits at the end of the flight, in front of the 3D arrival portal. The copy
+   is weighted to the lower half so it lands under the portal's sign rather
+   than on top of it. */
+.cta--arrival { background: none; padding-top: clamp(300px, 56vh, 620px); }
+/* The 3D portal carries the closing headline, so the DOM one would print it
+   twice. It stays in the accessibility tree (and shows if WebGL is off) but
+   is not painted over the sign. */
+.stage-on .cta--arrival .cta__title,
+/* And its standfirst with it: the closing title on the hillside says the same
+   thing in 3D, so the arrival is that, the two buttons, and nothing else. */
+.stage-on .cta--arrival .cta__lead,
+/* The hero title is real extruded geometry in the scene now (see scene.js),
+   so the flat DOM one would print it twice. It stays in the accessibility
+   tree and shows if WebGL is off. */
+.stage-on .hero__title {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+/* The 3D headline owns the opening frame. The standfirst and the two hero
+   buttons sat straight across the letterforms, so with the stage running they
+   are not painted either — the sponsor CTA has moved up into the nav beside
+   Request an invite, where it is reachable from anywhere on the page. */
+.stage-on .hero__sub,
+.stage-on .hero__actions {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.stage-on .hero__stats {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.stage-on .hero__copy { max-width: 40rem; margin-inline: auto; text-align: center; }
+.cta--arrival .cta__lead { text-shadow: 0 1px 14px rgba(255,255,255,.9); }
+.stage-on .cta--arrival .cta__actions { margin-top: 0; }
+.cta { position: relative; text-align: center; overflow: hidden; color: var(--ink); }
+.cta .section__wrap { position: relative; z-index: 2; }
 .cta__title { font-family: var(--font-head); font-weight: 500; font-size: clamp(34px, 6vw, 66px); line-height: 1.02; letter-spacing: -.02em; max-width: 16ch; margin-inline: auto; }
 .cta__title em { font-style: italic; color: var(--accent1); }
 .cta__lead { margin-inline: auto; }
 .cta__actions { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 40px; }
 
-/* ---------- 11. FOOTER ---------- */
-.footer { position: relative; z-index: 2; background: var(--dark); color: rgba(var(--bg-rgb), .68); padding: clamp(64px, 9vw, 88px) var(--gutter) 40px; }
-.footer__grid { max-width: var(--maxw); margin-inline: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 44px; }
-.footer__brand { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
-.footer__brand .nav__brandtext { color: var(--bg); }
-.footer__url { width: 100%; margin-top: 16px; font-size: 14px; color: rgba(var(--bg-rgb), .5); }
-.footer__cols { display: flex; flex-wrap: wrap; gap: clamp(32px, 6vw, 68px); }
-.footer__cols h4 { font: 700 10.5px var(--font-mono); letter-spacing: 2.5px; color: var(--accent2); margin-bottom: 14px; }
-.footer__cols a { display: block; font-size: 14px; line-height: 2; color: rgba(var(--bg-rgb), .74); transition: color .3s; }
-.footer__cols a:hover { color: var(--bg); }
-.footer__legal { max-width: var(--maxw); margin: clamp(48px,7vw,64px) auto 0; padding-top: 26px; border-top: 1px solid rgba(var(--bg-rgb), .14); font-size: 12.5px; color: rgba(var(--bg-rgb), .4); }
-
-/* ---------- 12. RESPONSIVE ---------- */
+/* ---------- 13. RESPONSIVE ---------- */
 @media (min-width: 900px) {
   .split { grid-template-columns: minmax(300px, 0.92fr) 1.5fr; gap: clamp(52px, 6vw, 96px); }
-  .split__head { position: sticky; top: 104px; }   /* stays in view while the right column scrolls */
+  .split__head { position: sticky; top: 104px; }
   .pillar { gap: 48px; }
 }
 @media (max-width: 899px) {
   .nav__burger { display: flex; }
+  /* the overlay is not a pill */
+  .nav__links { border: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+  .navlink + .navlink { border-left: 0; }
+  .navlink.is-here { background: none; color: var(--sky-gold); }
   .nav__links {
     position: fixed; inset: 0; flex-direction: column; align-items: flex-start; justify-content: center;
     gap: 8px; padding: 0 var(--gutter);
-    background: rgba(var(--bg-rgb), .96); backdrop-filter: blur(20px);
+    background: rgba(8,12,26,.97); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+    transform: none;   /* clear the desktop centring */
     opacity: 0; visibility: hidden; transform: translateY(-12px);
     transition: opacity .5s var(--smooth), transform .5s var(--smooth), visibility .5s;
   }
   .nav__links.is-open { opacity: 1; visibility: visible; transform: none; }
-  /* staggered link reveal inside the overlay */
   .nav__links.is-open .navlink, .nav__links.is-open .langtoggle, .nav__links.is-open .btn { animation: menuItem .6s var(--smooth) both; }
   .nav__links.is-open .navlink:nth-child(1){ animation-delay:.06s; }
   .nav__links.is-open .navlink:nth-child(2){ animation-delay:.12s; }
   .nav__links.is-open .navlink:nth-child(3){ animation-delay:.18s; }
   .nav__links.is-open .navlink:nth-child(4){ animation-delay:.24s; }
-  .nav__links.is-open .langtoggle{ animation-delay:.3s; }
-  .nav__links.is-open .btn{ animation-delay:.36s; }
   @keyframes menuItem { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
-  .navlink { font-family: var(--font-head); font-size: clamp(30px, 8vw, 44px); font-weight: 500; color: var(--ink); padding: 8px 0; }
-  .navlink::after { display: none; }
-  .nav__links .langtoggle { margin-top: 20px; }
-  .nav__links .btn { margin-top: 8px; }
+  .navlink { font-family: var(--font-head); font-size: clamp(30px, 8vw, 44px); font-weight: 500; color: #fff; padding: 8px 0; }
+  .nav__ctas .btn--ghost { display: none; }   /* keep only the primary CTA in the bar */
+  .nav__ctas { gap: 8px; }
+  /* the panels stop being cards on small screens — they take the full width */
+  .panel { border-radius: 0; margin-inline: calc(-1 * var(--gutter)); border-left: 0; border-right: 0; }
 }
 
-/* ---------- 13. REDUCED MOTION ---------- */
+/* ---------- 14. REDUCED MOTION ---------- */
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   [data-anim], [data-anim="stagger"] > *, .mask > * { opacity: 1 !important; transform: none !important; filter: none !important; }
   .marquee__track { animation: none !important; }
-  .person:hover .person__front img { filter: none; }
+  .person:hover .person__front img { filter: grayscale(0); transform: none; }
+  .hero__title { transform: none !important; }
+  .hero__copy { transform: none !important; opacity: 1 !important; }
+}
+
+/* ---------- 15. SPEAKER GALLERY CONTROLS ----------
+   No panel and no card: a translucent box floating over the scene read as a
+   browser dialogue dropped on top of it. The 3D card already shows the name
+   and the profile, so all that is left here is navigation — bare type and
+   chevrons in the same register as the scroll cue. */
+.cardui { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+/* One control on each edge of the screen, because the wall is a grid and that
+   is where each direction lives. They used to sit in a cluster, which read as a
+   game pad parked over the artwork and fouled the navigation bar.
+
+   The pad element itself stays static so its children resolve against .cardui
+   (position: fixed, inset 0) rather than against the foot. */
+.cardui__dir {
+  position: absolute; pointer-events: auto;
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; padding: 0;
+  border: 2px solid #171B24; border-radius: 50%; background: #FBF4E4;
+  box-shadow: 2px 2px 0 rgba(23,27,36,.85); cursor: pointer; color: #171B24;
+  transition: background .2s, color .2s, opacity .2s, box-shadow .2s;
+}
+.cardui__dir svg { width: 16px; height: 16px; }
+.cardui__dir:hover:not(:disabled) { background: #171B24; color: #FBF4E4; box-shadow: 4px 4px 0 rgba(23,27,36,.9); }
+/* No transform on :active — these carry their centring in one, and a second
+   transform on the same element replaces it rather than adding to it. */
+.cardui__dir:active:not(:disabled) { box-shadow: 0 0 0 rgba(23,27,36,.9); }
+.cardui__dir:disabled { opacity: .3; cursor: default; box-shadow: 1px 1px 0 rgba(23,27,36,.5); }
+
+/* Clear of the bar at the top and of the exit button at the foot. */
+.cardui__dir--up    { top: clamp(86px, 12vh, 118px); left: 50%; transform: translateX(-50%); }
+.cardui__dir--down  { bottom: clamp(90px, 12vh, 118px); left: 50%; transform: translateX(-50%); }
+.cardui__dir--left  { left: clamp(10px, 3vw, 44px); top: 50%; transform: translateY(-50%); }
+.cardui__dir--right { right: clamp(10px, 3vw, 44px); top: 50%; transform: translateY(-50%); }
+.cardui__dir--up    svg { transform: rotate(-90deg); }
+.cardui__dir--left  svg { transform: rotate(180deg); }
+.cardui__dir--down  svg { transform: rotate(90deg); }
+
+.cardui__foot {
+  position: absolute; left: 50%; bottom: clamp(18px, 4vh, 40px);
+  transform: translateX(-50%); pointer-events: none; text-align: center;
+  display: flex; align-items: center; gap: clamp(14px, 3vw, 28px);
+  animation: cardIn .45s var(--smooth) both;
+}
+@keyframes cardIn { from { opacity: 0; transform: translate(-50%, 12px); } to { opacity: 1; transform: translateX(-50%); } }
+.cardui__name { display: none; }
+/* The LinkedIn button rides on the card itself rather than in the row below it.
+   scene.js projects the focused card's geometry every frame and writes the
+   position onto this wrapper.
+
+   The wrapper exists precisely so the centring lives somewhere the button's own
+   hover cannot reach: .btn--primary:hover sets `transform: translateY(-2px)`,
+   which REPLACES a transform on the same element — so with the centring there,
+   the button jumped half its own size the instant the pointer touched it and
+   the click landed on the canvas behind, flipping the card instead of following
+   the link. */
+.cardui__inlink {
+  position: fixed; left: 0; top: 0; transform: translate(-50%, -50%);
+  z-index: 61; white-space: nowrap;
+  will-change: left, top;
+}
+.cardui__inlink[hidden] { display: none !important; }
+.cardui__inlink .btn {
+  pointer-events: auto;
+  border: 2px solid #171B24; box-shadow: 3px 3px 0 rgba(23,27,36,.85);
+}
+.cardui__inlink .btn:hover { box-shadow: 5px 5px 0 rgba(23,27,36,.9); }
+/* One clear way out, in the same voice as the site's calls to action. The
+   previous row was three underlined mono links of equal weight — the exit read
+   as the least important of the three, which is exactly backwards. Tapping
+   anywhere off a card also leaves (see the raycast in scene.js). */
+.cardui__links { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.cardui__cta { pointer-events: auto; box-shadow: 3px 3px 0 rgba(23,27,36,.85); border: 2px solid #171B24; }
+.cardui__cta:hover { box-shadow: 5px 5px 0 rgba(23,27,36,.9); }
+a.cardui__cta[hidden] { display: none !important; }
+/* the scroll cue would fight these for the same corner */
+.card-open .hero__scroll { opacity: 0; }
+
+/* ---------- 16. SMALL SCREENS ----------
+   The stage carries the whole page on mobile too, so what has to work here is
+   the chrome around it: a bar that fits a phone, and gallery controls that sit
+   where a thumb can reach without covering the card. */
+@media (max-width: 640px) {
+  .nav { padding: 12px var(--gutter); gap: 8px; }
+  .nav__ctas .btn { --py: 9px; --px: 14px; font-size: 12.5px; gap: 7px; }
+  .nav__ctas .btn__ico { display: none; }
+  .langtoggle__btn { padding: 5px 9px; font-size: 10px; min-width: 40px; }
+
+  /* Chevrons drop to the lower corners: at mid-height on a tall phone they
+     land right on top of the card being read. */
+  .cardui__dir { width: 38px; height: 38px; }
+  .cardui__dir--up { top: clamp(74px, 11vh, 96px); }
+  .cardui__dir--down { bottom: clamp(78px, 11vh, 100px); }
+  .cardui__foot { bottom: clamp(14px, 3vh, 26px); gap: 12px; }
+  .cardui__links { gap: 10px; }
+  .cardui__cta { font-size: 13px; --py: 10px; --px: 18px; }
+}
+
+/* Very short viewports (landscape phones) — keep the cue clear of the bar. */
+@media (max-height: 520px) {
+  .hero__scroll { display: none; }
+  .cardui__foot { bottom: 10px; }
+}
+
+/* ---------- 17. REQUEST FORM ----------
+   Reached by fast-forwarding the flight to the tunnel, so it has to belong to
+   that world: flat warm fills, a hard black edge and a dropped shadow rather
+   than blur and translucency. */
+/* An author `display` beats the UA's [hidden] rule, so the panel showed on
+   load until this put it back. */
+.reqform[hidden] { display: none !important; }
+/* Above the navigation bar, not under it. The bar is z-index 100 and fixed to
+   the top, so at 90 it painted straight over the panel's head. The top padding
+   keeps the panel clear of it even on a short viewport. */
+.reqform { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center;
+  padding: clamp(76px, 11vh, 104px) clamp(16px, 4vw, 40px) clamp(20px, 4vw, 40px);
+  background: rgba(10,16,28,.55); animation: reqIn .35s var(--smooth) both; }
+@keyframes reqIn { from { opacity: 0 } to { opacity: 1 } }
+.reqform__panel {
+  position: relative; width: min(100%, 30rem); max-height: 100%; overflow: auto;
+  background: #FBF4E4; border: 3px solid #171B24; border-radius: 22px;
+  box-shadow: 10px 10px 0 rgba(23,27,36,.9);
+  padding: clamp(24px, 4vw, 38px);
+  animation: reqPop .4s var(--spring) both;
+}
+@keyframes reqPop { from { opacity: 0; transform: translateY(18px) scale(.96) } to { opacity: 1; transform: none } }
+.reqform__close { position: absolute; top: 12px; right: 14px; width: 34px; height: 34px;
+  border: 2px solid #171B24; border-radius: 50%; background: #fff; cursor: pointer;
+  font: 400 20px/1 var(--font-body); color: #171B24; transition: background .25s, transform .25s; }
+.reqform__close:hover { background: var(--accent1); color: #fff; transform: rotate(90deg); }
+.reqform__kicker { font: 700 10.5px var(--font-mono); letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent1); }
+.reqform__title { font-family: var(--font-head); font-weight: 600; font-size: clamp(24px, 3.4vw, 32px);
+  line-height: 1.08; color: var(--ink); margin: 8px 0 20px; }
+.reqform__body { display: flex; flex-direction: column; gap: 14px; }
+.reqfield { display: flex; flex-direction: column; gap: 6px;
+  font: 700 10.5px var(--font-mono); letter-spacing: 1.8px; text-transform: uppercase; color: rgba(23,27,36,.66); }
+.reqfield input, .reqfield textarea {
+  font: 400 15px var(--font-body); color: var(--ink); background: #fff;
+  border: 2px solid #171B24; border-radius: 12px; padding: 11px 13px; width: 100%;
+  transition: border-color .25s, box-shadow .25s;
+}
+.reqfield input:focus, .reqfield textarea:focus {
+  outline: none; border-color: var(--accent1); box-shadow: 4px 4px 0 rgba(192,57,43,.28);
+}
+.reqfield textarea { resize: vertical; min-height: 74px; }
+.reqform__submit { justify-content: center; margin-top: 6px; border: 2px solid #171B24; }
+.reqform__done { font: 700 11px var(--font-mono); letter-spacing: 1.8px; text-transform: uppercase;
+  color: #2F7A46; text-align: center; margin-top: 4px; }
+@media (max-width: 640px) {
+  .reqform__panel { border-width: 2px; box-shadow: 6px 6px 0 rgba(23,27,36,.9); }
 }
