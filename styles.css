@@ -500,8 +500,16 @@ a { color: inherit; text-decoration: none; }
   .nav__links.is-open .navlink:nth-child(4){ animation-delay:.24s; }
   @keyframes menuItem { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
   .navlink { font-family: var(--font-head); font-size: clamp(30px, 8vw, 44px); font-weight: 500; color: #fff; padding: 8px 0; }
-  .nav__ctas .btn--ghost { display: none; }   /* keep only the primary CTA in the bar */
+  /* One call to action in the bar, not two. Both were wrapping onto a second
+     line and shoving the language toggle and the burger out of alignment —
+     "Sponsor inquiry" is still on the arrival screen and inside the request
+     panel, so nothing is lost by taking it out of a 390px-wide bar. */
+  .nav__ctas .btn--ghost, .nav__ctas .btn--gold { display: none; }
   .nav__ctas { gap: 8px; }
+  .nav { padding: 12px var(--gutter); gap: 10px; }
+  .nav__ctas .btn { --py: 9px; --px: 15px; font-size: 13px; white-space: nowrap; }
+  .nav__ctas .btn__ico { display: none; }     /* the arrow is what pushed it to two lines */
+  .langtoggle__btn { min-width: 38px; }
   /* the panels stop being cards on small screens — they take the full width */
   .panel { border-radius: 0; margin-inline: calc(-1 * var(--gutter)); border-left: 0; border-right: 0; }
 }

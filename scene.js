@@ -140,7 +140,13 @@ function init() {
   const draco = new DRACOLoader().setDecoderPath('./vendor/draco/').setDecoderConfig({ type: 'wasm' });
   const gltfLoader = new GLTFLoader().setDRACOLoader(draco);
 
-  const ctxAttrs = { alpha: false, antialias: true, powerPreference: 'high-performance' };
+  /* iOS gives a tab a few hundred megabytes and kills it without warning past
+     that, so the phone build is measured rather than inherited. Multisampling
+     is the single largest line item: a multisampled drawing buffer is roughly
+     four times the memory of a plain one, ~23 MB against ~6 MB at this size,
+     and it buys least on the display where the pixels are smallest. */
+  const SMALL = window.innerWidth < 820;
+  const ctxAttrs = { alpha: false, antialias: !SMALL, powerPreference: 'high-performance' };
   const gl = canvas.getContext('webgl2', ctxAttrs) || canvas.getContext('webgl', ctxAttrs);
   if (!gl) return;
 
@@ -157,8 +163,8 @@ function init() {
     }
   }, 20000);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: !SMALL });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, SMALL ? 1.25 : 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
 
   const scene  = new THREE.Scene();
@@ -1090,7 +1096,9 @@ function init() {
            multiplier: 3x is right on one display and half of what is needed on
            the next, and it was the small type that showed it. The big serif name
            survived the upscale; the mono kicker and the body did not. */
-        const CARD_PX = 512, CARD_PY = 668;
+        /* The wall is eighteen textures held at once: 23 MB at 512, 9 MB at 320.
+           Same aspect, so the focus texture below is unaffected. */
+        const CARD_PX = SMALL ? 320 : 512, CARD_PY = SMALL ? 418 : 668;
         const focusPx = () => Math.max(760, Math.min(2600, Math.round(renderer.domElement.height * 0.82)));
         const lang = () => (document.documentElement.lang === 'es' ? 'es' : 'en');
         /* One canvas, one size, painted once and repainted on a language change.
@@ -2236,10 +2244,16 @@ function init() {
   const readProgress = () => { progress = clamp((window.scrollY - zoneTop) / zoneTotal, 0, 1); };
 
   const mouse = { x: 0, y: 0 }, drift = { x: 0, y: 0 };
-  window.addEventListener('pointermove', (e) => {
-    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
-  }, { passive: true });
+  /* Mouse only. pointermove fires for touch too, so on a phone the first tap
+     parked the camera off-axis and left the hero title sitting a few per cent
+     left of centre with no way to bring it back — there is no pointer to move
+     away. A finger is not a hovering cursor. */
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    window.addEventListener('pointermove', (e) => {
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = (e.clientY / window.innerHeight) * 2 - 1;
+    }, { passive: true });
+  }
 
   function resize() {
     const w = window.innerWidth, h = window.innerHeight;
@@ -2247,8 +2261,9 @@ function init() {
        the buffer harder on small screens than on a desktop display. */
     /* Raised from 1.75 on anything but a phone: at 1.75 a 2x display renders
        12% under its own resolution, which is a soft edge on every card face
-       before the texture even comes into it. */
-    const cap = w < 700 ? 1.5 : 2;
+       before the texture even comes into it. On a phone it goes the other way —
+       buffer memory is the square of this number. */
+    const cap = SMALL ? 1.25 : 2;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, cap));
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
