@@ -1,5 +1,14 @@
 # Spain at Silicon Valley
 
+> [!NOTE]
+> **An unofficial design concept, not the version that was used.** I rebuilt
+> this landing page in September 2026 as a proposal for the Spain Silicon
+> Valley summit. The organisers went with a different site,
+> [spainsiliconvalley.com](https://spainsiliconvalley.com). The original page
+> and idea came from [Julen96](https://github.com/Julen96/spain-sv-summit);
+> the 3D flight, scene and redesign here are mine. The speaker line-up is
+> illustrative: none of the people shown have agreed to appear.
+
 Landing page for the Spring 2027 summit at Google HQ, Mountain View.
 
 The page **is** the journey: one fixed WebGL stage that the whole document
@@ -57,7 +66,6 @@ wherever they run:
 All via Wikimedia Commons, cropped from the originals. The two BY-SA crops are
 adaptations and carry the same licence onward.
 
-**Pilar Manchón's portrait is an El País editorial photograph and is not
-cleared for use.** It needs permission or replacing before this is published in
-earnest. Every other speaker without a rights-cleared photograph shows a
-monogram instead, which is what that one should be until it is settled.
+Pilar Manchón's portrait was an El País editorial photograph that is not
+cleared for use, so it has been removed. She shows as a monogram, like every
+other speaker without a rights-cleared photograph.

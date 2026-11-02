@@ -25,6 +25,7 @@ const I18N = {
     'cta.request':'Request an invite','cta.sponsor':'Sponsor inquiry',
     'cta.title':'See you in Mountain View, Spring 2027.',
     'cta.lead':'Invitations are limited. Tell us who you are and we will be in touch.',
+    'cta.concept':"Unofficial design concept, not the event's website. The line-up is illustrative.",
 
     'why.title':'The reference summit for Spanish talent. Quality over quantity.',
     'why.lead':'What the summit opens up for you, depending on where you sit.',
@@ -88,6 +89,7 @@ const I18N = {
     'cta.request':'Solicitar invitación','cta.sponsor':'Quiero patrocinar',
     'cta.title':'Nos vemos en Mountain View, primavera de 2027.',
     'cta.lead':'Las invitaciones son limitadas. Cuéntanos quién eres y nos pondremos en contacto.',
+    'cta.concept':'Concepto de diseño no oficial, no es la web del evento. Los ponentes son ilustrativos.',
 
     'why.title':'La cumbre de referencia para el talento español. Calidad antes que cantidad.',
     'why.lead':'Lo que la cumbre te abre, según el lugar desde el que llegas.',
