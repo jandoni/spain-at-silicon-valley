@@ -4,8 +4,7 @@
 > **An unofficial design concept, not the version that was used.** I rebuilt
 > this landing page in September 2026 as a proposal for the Spain Silicon
 > Valley summit. The organisers went with a different site,
-> [spainsiliconvalley.com](https://spainsiliconvalley.com). The original page
-> and idea came from [Julen96](https://github.com/Julen96/spain-sv-summit);
+> [spainsiliconvalley.com](https://spainsiliconvalley.com).
 > the 3D flight, scene and redesign here are mine. The speaker line-up is
 > illustrative: none of the people shown have agreed to appear.
 
