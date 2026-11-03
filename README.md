@@ -10,6 +10,8 @@
 
 Landing page for the Spring 2027 summit at Google HQ, Mountain View.
 
+[Live preview](https://jandoni.github.io/spain-at-silicon-valley/) (GitHub Pages, published from `main`)
+
 The page **is** the journey: one fixed WebGL stage that the whole document
 scrolls through, flying the length of the Golden Gate. The programme stands on
 the bridge as extruded 3D type rather than sitting in DOM sections over it.
